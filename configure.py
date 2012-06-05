@@ -42,12 +42,17 @@ def build(build_config, build_number, job):
     hudson = BuildGenerator(job=job)
     if build_config is not None:
         hudson.readBuildConfiguration(build_config)
+        if hudson.build():
+         return hudson
+        else:
+         raise EnvironmentError("hudson build failed")
     elif build_number is not None:
-        hudson.getBuildWithNumber(build_number)
-    if hudson.build():
-        return hudson
-    else:
-        raise EnvironmentError("hudson build failed")
+        bld = hudson.getBuildWithNumber(build_number)
+        if bld is not None:
+            return hudson
+        else: 
+            raise EnvironmentError("Could not find build with number %s"%build_number)
+
 
 def fetch(filename, url, path):
     try:
