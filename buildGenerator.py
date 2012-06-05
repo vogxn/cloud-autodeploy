@@ -82,7 +82,7 @@ class BuildGenerator(object):
         if number > 0:
             bld = self.jobclient.get_build(number)
             self.build_number = number
-            self.paramlist = self.parseConfigParams()
+            self.paramlist = self.getBuildParamList(bld)
             return bld
 
     def getBuildParamValue(self, name):
@@ -100,14 +100,17 @@ class BuildGenerator(object):
         if artifact_dict is not None:
             return artifact_dict
 
+    def sift(self, dic):
+        return dic['name'], dic['value']
+    
+    def getBuildParamList(self, bld):
+        params = bld.get_actions()['parameters']
+        return dict(map(self.sift, params))
+        
     def resolveRepoPath(self):
-        if self.jobclient.get_last_buildnumber() == \
-           self.jobclient.get_last_good_buildnumber():
-            good = self.getLastGoodBuild()
-            params = good.get_actions()['parameters']
             tarball_list = ['CloudStack-' , 
                        self.getBuildParamValue('PACKAGE_VERSION') , 
-                       '-0.', str(self.jobclient.get_last_good_buildnumber()) , '-' , 
+                       '-0.', str(self.build_number) , '-' , 
                        self.getBuildParamValue('DO_DISTRO_PACKAGES') ,  
                        '.tar.gz'] 
 
@@ -121,6 +124,9 @@ class BuildGenerator(object):
             return path
 
 if __name__ == '__main__':
-    hudson = BuildGenerator(job="marvin")
-    hudson.readBuildConfiguration('build.cfg')
-    hudson.build()
+#    hudson = BuildGenerator(job="marvin")
+#    hudson.readBuildConfiguration('build.cfg')
+#    hudson.build()
+
+     hudson = BuildGenerator("CloudStack")
+     hudson.getBuildWithNumber(2586)

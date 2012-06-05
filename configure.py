@@ -38,9 +38,12 @@ def initLogging(logFile=None):
 def mkdirs(path):
     dir = bash("mkdir -p %s" % path)
 
-def build(build_config, job):   
+def build(build_config, build_number, job):   
     hudson = BuildGenerator(job=job)
-    hudson.readBuildConfiguration(build_config)
+    if build_config is not None:
+        hudson.readBuildConfiguration(build_config)
+    elif build_number is not None:
+        hudson.getBuildWithNumber(build_number)
     if hudson.build():
         return hudson
     else:
@@ -189,26 +192,26 @@ def init():
         
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("-b", "--build-config", action="store", default="build.cfg", dest="build_config", help="the path where the configuration of the build is stored")
+    parser.add_option("-b", "--build-config", action="store", default=None, dest="build_config", help="the path where the configuration of the build is stored")
     parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
     parser.add_option("-d", "--deployment-config", action="store", default="automation.cfg", dest="auto_config", help="json spec of deployment")
+    parser.add_option("-n", "--build-number", action="store", default=None, dest="build_number", help="CloudStack build number")
     (options, args) = parser.parse_args()
-    
-    if options.build_config is None:
-        logging.error("must provide a configuration file for the build")
-        raise
+
+    if options.build_number is None and options.build_config is None:
+        raise AttributeError("must provide a configuration file for the build or a build number")
+    if options.build_config is not None and options.build_number is not None:
+        raise AttributeError("either build.cfg is provided or the build number - not both")
         
     if options.env_config is None:
-        logging.error("please provide the server configuration file")
-        raise
+        raise AttributeError("please provide the server configuration file")
     
     if options.auto_config is None:
-        logging.error("please provide the spec file for your deployment")
-        raise
+        raise AttributeError("please provide the spec file for your deployment")
 
     init()
     
-    bld = build(options.build_config, "CloudStack")
+    bld = build(options.build_config, options.build_number, "CloudStack")
     savebuild(bld)
     configureManagementServer(bld, options.env_config, options.auto_config)
     refreshHosts(options.auto_config)
