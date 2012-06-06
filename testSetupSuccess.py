@@ -45,7 +45,7 @@ class TestSetupSuccess(cloudstackTestCase):
         for z in self.zones_list:
             retry = self.retry
             while retry != 0:
-                self.debug("Looking for at least on ready builtin template")
+                self.debug("Looking for at least one ready builtin template")
                 templates = listTemplates.listTemplatesCmd()
                 templates.templatefilter = 'featured'
                 templates.listall = 'true'
