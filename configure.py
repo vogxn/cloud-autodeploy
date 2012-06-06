@@ -47,7 +47,7 @@ def build(build_config, build_number, job):
         else:
          raise EnvironmentError("hudson build failed")
     elif build_number is not None:
-        bld = hudson.getBuildWithNumber(build_number)
+        bld = hudson.getBuildWithNumber(int(build_number))
         if bld is not None:
             return hudson
         else: 
