@@ -67,10 +67,9 @@ class BuildGenerator(object):
             while self.jobclient.is_running():
                 logging.debug("Polling build status in %ss"%wait)
                 delay(wait)
-            logging.debug("Completed build : \
-                          %d"%self.jobclient.get_last_buildnumber())
-            if self.jobclient.get_last_buildnumber() == self.jobclient.get_last_good_buildnumber():
-                self.build_number = self.jobclient.get_last_buildnumber()
+            logging.debug("Completed build : %d"%self.jobclient.get_last_buildnumber())
+            if self.jobclient.get_last_completed_buildnumber() == self.jobclient.get_last_good_buildnumber():
+                self.build_number = self.jobclient.get_last_completed_buildnumber()
                 return self.build_number
             else:
                 return 0
