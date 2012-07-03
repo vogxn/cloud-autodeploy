@@ -6,6 +6,7 @@ from time import sleep as delay
 import jenkinsapi
 import logging
 import os
+from jenkins import JenkinsException
 
 class BuildGenerator(object):
     """
@@ -25,8 +26,8 @@ class BuildGenerator(object):
             self.password = passwd
         else:
             logging.warning("no username given, logging in with default creds")
-            self.username = "prasanna"
-            self.password = "password"
+            self.username = "marvin"
+            self.password = "marvin"
 
         try:
             j = jenkins.Jenkins(self.hudsonurl, self.username, self.password)
@@ -63,14 +64,21 @@ class BuildGenerator(object):
     def build(self, wait=60):
         if self.config and self.jobclient:
             self.jobclient.invoke(params=self.parseConfigParams())
+            self.build_number = self.jobclient.get_last_buildnumber()
             self.paramlist = self.parseConfigParams()
+            logging.debug("Started build : %d"%self.jobclient.get_last_buildnumber())
             while self.jobclient.is_running():
                 logging.debug("Polling build status in %ss"%wait)
                 delay(wait)
             logging.debug("Completed build : %d"%self.jobclient.get_last_buildnumber())
-            if self.jobclient.get_last_completed_buildnumber() == self.jobclient.get_last_good_buildnumber():
-                self.build_number = self.jobclient.get_last_completed_buildnumber()
+            if self.jobclient.get_last_completed_buildnumber() == self.build_number \
+            and self.jobclient.get_last_completed_buildnumber() == self.jobclient.get_last_good_buildnumber():
                 return self.build_number
+            elif self.jobclient.get_last_completed_buildnumber() > self.build_number:
+                logging.debug("Overtaken by another build. Determining build status for %d"%self.build_number)
+                our_build = self.getBuildWithNumber(self.build_number)
+                if our_build is not None and our_build.get_status() == 'SUCCESS':
+                    return self.build_number
             else:
                 return 0
 
