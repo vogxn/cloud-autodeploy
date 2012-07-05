@@ -15,7 +15,7 @@ class BuildGenerator(object):
     3. Fetch latest successful job
     4. Resolve Job to Repo URL/fetch artifact
     """
-    def __init__(self, username=None, passwd=None, url="http://hudson.lab.vmops.com", job='CloudStack'):
+    def __init__(self, username=None, passwd=None, url="http://hudson.lab.vmops.com", job='CloudStack-PRIVATE'):
         #TODO: Change the username to "vogon" for automation
         self.hudsonurl = url
         self.tarball = None
@@ -71,10 +71,9 @@ class BuildGenerator(object):
                 logging.debug("Polling build status in %ss"%wait)
                 delay(wait)
             logging.debug("Completed build : %d"%self.jobclient.get_last_buildnumber())
-            if self.jobclient.get_last_completed_buildnumber() == self.build_number \
-            and self.jobclient.get_last_completed_buildnumber() == self.jobclient.get_last_good_buildnumber():
+            if self.jobclient.get_last_good_buildnumber() == self.build_number:
                 return self.build_number
-            elif self.jobclient.get_last_completed_buildnumber() > self.build_number:
+            elif self.jobclient.get_last_good_buildnumber() > self.build_number:
                 logging.debug("Overtaken by another build. Determining build status for %d"%self.build_number)
                 our_build = self.getBuildWithNumber(self.build_number)
                 if our_build is not None and our_build.get_status() == 'SUCCESS':
