@@ -6,7 +6,6 @@ from time import sleep as delay
 import jenkinsapi
 import logging
 import os
-from jenkins import JenkinsException
 
 class BuildGenerator(object):
     """
