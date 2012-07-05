@@ -46,7 +46,7 @@ def build(build_config, build_number, job):
          return hudson
         else:
          raise EnvironmentError("hudson build failed")
-    elif build_number is not None:
+    elif build_number is not None and build_number > 0:
         bld = hudson.getBuildWithNumber(int(build_number))
         if bld is not None:
             return hudson
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     configureManagementServer(bld, options.env_config, options.auto_config)
     refreshHosts(options.auto_config)
 
-    bld = build(options.build_config, "marvin-testclient")
+    bld = build(options.build_config, 0, "marvin-testclient")
     for k, v in bld.getArtifacts().iteritems(): 
         fetch(k, v.url, SRC_ARCH_DIR)
         bash("pip uninstall -y marvin")
