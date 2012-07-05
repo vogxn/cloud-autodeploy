@@ -216,13 +216,13 @@ if __name__ == '__main__':
 
     init()
     
-    bld = build(options.build_config, options.build_number, "CloudStack")
+    bld = build(options.build_config, options.build_number, "CloudStack-PRIVATE")
     savebuild(bld)
     configureManagementServer(bld, options.env_config, options.auto_config)
     refreshHosts(options.auto_config)
 
-#    bld = build(options.build_config, "marvin")
-#    for k, v in bld.getArtifacts().iteritems(): 
-#        fetch(k, v.url, SRC_ARCH_DIR)
-#        bash("pip uninstall marvin")
-#        bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
+    bld = build(options.build_config, "marvin-testclient")
+    for k, v in bld.getArtifacts().iteritems(): 
+        fetch(k, v.url, SRC_ARCH_DIR)
+        bash("pip uninstall -y marvin")
+        bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
