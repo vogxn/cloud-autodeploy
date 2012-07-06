@@ -69,13 +69,17 @@ class BuildGenerator(object):
             self.jobclient.invoke(params=self.parseConfigParams())
             self.build_number = self.jobclient.get_last_buildnumber()
             self.paramlist = self.parseConfigParams()
-            logging.debug("Started build : %d"%self.jobclient.get_last_buildnumber())
+            logging.info("Started build : %d"%self.jobclient.get_last_buildnumber())
             
             while self.jobclient.is_running():
                 logging.debug("Polling build status in %ss"%wait)
                 delay(wait)
             
-            logging.debug("Completed build : %d"%self.jobclient.get_last_buildnumber())
+            logging.info("Completed build : %d"%self.jobclient.get_last_buildnumber())
+            logging.debug("Last Good Build : %d, Last Build : %d, Our Build : \
+                          %d",%(self.jobclient.get_last_good_buildnumber(), \
+                                self.jobclient.get_last_buildnumber(), \
+                                self.build_number))
             if self.jobclient.get_last_good_buildnumber() == self.build_number:
                 return self.build_number
             elif self.jobclient.get_last_good_buildnumber() > self.build_number:
