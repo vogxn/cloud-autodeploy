@@ -2,7 +2,7 @@
 usage() {
   printf "Usage: %s:\n
 	[-s path to secondary ]  \n
-	[-h hypervisor type (kvm|xenserver) ]  \n
+	[-h hypervisor type (kvm|xenserver|vmware) ]  \n
 	[-t session-timeout ] \n
 	[-a tarball path ] \n
 	[-d db node url ]\n" $(basename $0) >&2
@@ -66,8 +66,8 @@ else
 fi
 
 #check if process is running
-proc=$(ps aux | grep java | wc -l)
-if [[ $proc -le 2 ]]
+proc=$(ps aux | grep cloud | wc -l)
+if [[ $proc -lt 2 ]]
 then
         echo "Cloud process not running"
         if [[ -e /var/run/cloud-management.pid ]]
@@ -79,6 +79,12 @@ else
         service cloud-management stop
 fi
 
+#set selinux to permissive
+if [[ $(getenforce)=="Enforcing" ]]
+then
+    echo "Disabling SELinux"
+    $(setenforce permissive)
+fi
 
 if [[ "$aflag" == "1" ]]
 then
@@ -146,6 +152,9 @@ then
 	elif [[ "$hflag" == "1" && "$hypervisor" == "kvm" ]]
 	then
 		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.qcow2.bz2 -h kvm
+	elif [[ "$hflag" == "1" && "$hypervisor" == "vmware" ]]
+	then
+		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.ova -h vmware
 	else
 		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
 	fi
