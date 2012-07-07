@@ -82,13 +82,13 @@ class BuildGenerator(object):
                                 self.build_number))
             if self.jobclient.get_last_good_buildnumber() == self.build_number:
                 return self.build_number
-            elif self.jobclient.get_last_good_buildnumber() > self.build_number:
-                logging.debug("Overtaken by another build. Determining build status for %d"%self.build_number)
+            else: #lastGoodBuild != ourBuild
+                logging.debug("Determining our builds' %d status"%self.build_number)
                 our_build = self.getBuildWithNumber(self.build_number)
                 if our_build is not None and our_build.get_status() == 'SUCCESS':
                     return self.build_number
-            else:
-                return 0
+                else:
+                    return 0
 
     def getLastGoodBuild(self):
         return self.jobclient.get_build(self.build_number)
