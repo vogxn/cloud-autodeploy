@@ -77,7 +77,7 @@ class BuildGenerator(object):
             
             logging.info("Completed build : %d"%self.jobclient.get_last_buildnumber())
             logging.debug("Last Good Build : %d, Last Build : %d, Our Build : \
-                          %d",%(self.jobclient.get_last_good_buildnumber(), \
+                          %d"%(self.jobclient.get_last_good_buildnumber(), \
                                 self.jobclient.get_last_buildnumber(), \
                                 self.build_number))
             if self.jobclient.get_last_good_buildnumber() == self.build_number:
