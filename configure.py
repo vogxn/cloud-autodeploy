@@ -96,6 +96,7 @@ def configureManagementServer(bld, env_config, auto_config):
 #    3. setup-databases and setup-management
     ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
     ssh.scp("%s/redeploy.sh" % WORKSPACE, "/root/redeploy.sh")
+    ssh.execute("chmod +x /root/redeploy.sh")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
             shost = urlparse.urlsplit(sstor.url).hostname
