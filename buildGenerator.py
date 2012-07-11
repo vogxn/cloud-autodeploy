@@ -83,11 +83,12 @@ class BuildGenerator(object):
             if self.jobclient.get_last_good_buildnumber() == self.build_number:
                 return self.build_number
             else: #lastGoodBuild != ourBuild
-                logging.debug("Determining our builds' %d status"%self.build_number)
                 our_build = self.getBuildWithNumber(self.build_number)
                 if our_build is not None and our_build.get_status() == 'SUCCESS':
+                    logging.debug("Our builds' %d status"%our_build.get_status())
                     return self.build_number
                 else:
+                    logging.debug("Our builds' %d status"%our_build.get_status())
                     return 0
 
     def getLastGoodBuild(self):
