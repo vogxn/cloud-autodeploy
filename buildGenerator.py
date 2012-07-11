@@ -85,10 +85,12 @@ class BuildGenerator(object):
             else: #lastGoodBuild != ourBuild
                 our_build = self.getBuildWithNumber(self.build_number)
                 if our_build is not None and our_build.get_status() == 'SUCCESS':
-                    logging.debug("Our builds' %d status"%our_build.get_status())
+                    logging.debug("Our builds' %d status %s"%(self.build_number,
+                                                              our_build.get_status()))
                     return self.build_number
                 else:
-                    logging.debug("Our builds' %d status"%our_build.get_status())
+                    logging.debug("Our builds' %d status %s"%(self.build_number,
+                                                              our_build.get_status()))
                     return 0
 
     def getLastGoodBuild(self):
