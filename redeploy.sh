@@ -24,6 +24,9 @@ tflag=
 hflag=
 aflag=
 
+VERSION="1.0.1"
+echo "Redeploy Version: $VERSION"
+
 
 #some defaults
 spath='/export/home/bvt/secondary'
@@ -117,7 +120,6 @@ sed -iv 's/download.cloud.com/nfs1.lab.vmops.com/g' /usr/share/cloud/setup/templ
 sed -i "s/<session-timeout>30</<session-timeout>$timeout</g" /etc/cloud/management/web.xml
 
 #TODO: archive old logs
-
 #refresh log state 
 cat /dev/null > /var/log/cloud/management/management-server.log
 cat /dev/null > /var/log/cloud/management/api-server.log
