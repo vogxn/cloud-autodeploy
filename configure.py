@@ -24,16 +24,16 @@ SRC_ARCH_DIR = "/root/cloud/arch"
 DST_ARCH_DIR = "/root/cloud/arch"
 WORKSPACE = "/automation/sandbox/scripts"
 
-def initLogging(logFile=None):
+def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
-            logging.basicConfig(level=logging.DEBUG, \
+            logging.basicConfig(level=lvl, \
                                 format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
         else: 
-            logging.basicConfig(filename=logFile, level=logging.DEBUG, \
+            logging.basicConfig(filename=logFile, level=lvl, \
                                 format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
     except:
-        logging.basicConfig(level=logging.DEBUG) 
+        logging.basicConfig(level=lvl) 
 
 def mkdirs(path):
     dir = bash("mkdir -p %s" % path)
