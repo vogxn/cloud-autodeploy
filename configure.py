@@ -22,7 +22,7 @@ import errno
 
 SRC_ARCH_DIR = "/root/cloud/arch"
 DST_ARCH_DIR = "/root/cloud/arch"
-WORKSPACE = "/automation/sandbox/scripts"
+WORKSPACE = "/hudson/scripts"
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -203,6 +203,7 @@ if __name__ == '__main__':
     parser.add_option("-d", "--deployment-config", action="store", default="automation.cfg", dest="auto_config", help="json spec of deployment")
     parser.add_option("-n", "--build-number", action="store", default=None, dest="build_number", help="CloudStack build number")
     parser.add_option("-s", "--skip-host", action="store_true", default=False, dest="skip_host", help="Skip Host Refresh")
+    parser.add_option("-m", "--install-marvin", action="store_true", default=True, dest="install_marvin", help="Install Marvin")
     (options, args) = parser.parse_args()
 
     if options.build_number is None and options.build_config is None:
@@ -224,8 +225,9 @@ if __name__ == '__main__':
     if not options.skip_host:
         refreshHosts(options.auto_config)
 
-    bld = build(options.build_config, 0, "marvin-testclient")
-    for k, v in bld.getArtifacts().iteritems(): 
-        fetch(k, v.url, SRC_ARCH_DIR)
-        bash("pip uninstall -y marvin")
-        bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
+    if not options.install_marvin:
+        bld = build(options.build_config, 0, "marvin-testclient")
+        for k, v in bld.getArtifacts().iteritems(): 
+            fetch(k, v.url, SRC_ARCH_DIR)
+            bash("pip uninstall -y marvin")
+            bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
