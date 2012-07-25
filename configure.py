@@ -226,8 +226,9 @@ if __name__ == '__main__':
         refreshHosts(options.auto_config)
 
     if not options.install_marvin:
-        bld = build(options.build_config, 0, "marvin-testclient")
-        for k, v in bld.getArtifacts().iteritems(): 
-            fetch(k, v.url, SRC_ARCH_DIR)
-            bash("pip uninstall -y marvin")
-            bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
+        if options.build_config:
+            bld = build(options.build_config, 0, "marvin-testclient")
+            for k, v in bld.getArtifacts().iteritems(): 
+                fetch(k, v.url, SRC_ARCH_DIR)
+                bash("pip uninstall -y marvin")
+                bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
