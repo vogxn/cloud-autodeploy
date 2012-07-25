@@ -107,7 +107,7 @@ then
 		tar -xvzf $apath -C /tmp/$dir
 		installer_script=$(find /tmp/$dir -name install.sh)
 		bash $installer_script -m #TODO: Pradeep's installer with options
-        bash rm -rf /tmp/$dir
+                bash rm -rf /tmp/$dir
 	else
 		echo "Cannot find cloudstack in $apath"
 		exit 5

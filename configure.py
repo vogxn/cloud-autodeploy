@@ -202,6 +202,7 @@ if __name__ == '__main__':
     parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
     parser.add_option("-d", "--deployment-config", action="store", default="automation.cfg", dest="auto_config", help="json spec of deployment")
     parser.add_option("-n", "--build-number", action="store", default=None, dest="build_number", help="CloudStack build number")
+    parser.add_option("-s", "--skip-host", action="store_true", default=False, dest="skip_host", help="Skip Host Refresh")
     (options, args) = parser.parse_args()
 
     if options.build_number is None and options.build_config is None:
@@ -220,7 +221,8 @@ if __name__ == '__main__':
     bld = build(options.build_config, options.build_number, "CloudStack-PRIVATE")
     savebuild(bld)
     configureManagementServer(bld, options.env_config, options.auto_config)
-    refreshHosts(options.auto_config)
+    if not options.skip_host:
+        refreshHosts(options.auto_config)
 
     bld = build(options.build_config, 0, "marvin-testclient")
     for k, v in bld.getArtifacts().iteritems(): 
