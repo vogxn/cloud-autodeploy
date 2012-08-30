@@ -6,6 +6,7 @@ made out of our CI system. The CI system is internal at the moment.
 ###Dependencies
 * Python
 * [jenkinsapi](http://pypi.python.org/pypi/jenkinsapi)
+* marvin
 
 build.cfg - contains build information given to the CI system
         - branch, BUILDABLE_TARGET
