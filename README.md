@@ -3,6 +3,10 @@
 Scripts here are used to refresh the builds of the management server with those
 made out of our CI system. The CI system is internal at the moment.
 
+###Dependencies
+* Python
+* [jenkinsapi](http://pypi.python.org/pypi/jenkinsapi)
+
 build.cfg - contains build information given to the CI system
         - branch, BUILDABLE_TARGET
         - distro of mgmt server tarball
