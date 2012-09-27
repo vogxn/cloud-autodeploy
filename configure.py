@@ -59,7 +59,7 @@ def configureManagementServer(auto_config, mgmt_host):
          --profile=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"], mgmt_host));
 
     #Revoke all certs from puppetmaster
-    bash("puppetca --revoke --all")
+    bash("puppet cert clean --all")
 
     #Start VM on xenserver
     xenssh = \
