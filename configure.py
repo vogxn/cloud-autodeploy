@@ -5,7 +5,8 @@ from marvin import configGenerator
 from marvin import remoteSSHClient
 from marvin import dbConnection
 from optparse import OptionParser
-from ipmi_lookup import ipmitable
+from syslookup import ipmitable
+from syslookup import mactable
 from time import sleep as delay
 import bashUtils
 import buildGenerator
@@ -20,9 +21,7 @@ import socket
 import select
 import errno
 
-SRC_ARCH_DIR = "/root/cloud/arch"
-DST_ARCH_DIR = "/root/cloud/arch"
-WORKSPACE = "/hudson/scripts"
+WORKSPACE="/root"
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -38,22 +37,6 @@ def initLogging(logFile=None, lvl=logging.INFO):
 def mkdirs(path):
     dir = bash("mkdir -p %s" % path)
 
-def build(build_config, build_number, job):   
-    hudson = BuildGenerator(job=job)
-    if build_config is not None:
-        hudson.readBuildConfiguration(build_config)
-        if hudson.build():
-         return hudson
-        else:
-         raise EnvironmentError("hudson build failed")
-    elif build_number is not None and build_number > 0:
-        bld = hudson.getBuildWithNumber(int(build_number))
-        if bld is not None:
-            return hudson
-        else: 
-            raise EnvironmentError("Could not find build with number %s"%build_number)
-
-
 def fetch(filename, url, path):
     try:
         zipstream = urllib2.urlopen(url)
@@ -66,48 +49,49 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
-def copyBuildToMshost(hudson, env_config):
-   cfg = ConfigParser()
-   cfg.optionxform = str
-   cfg.read(env_config)
-   
-   environment = dict(cfg.items('environment'))
-   ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-   ssh.execute("mkdir -p %s" % DST_ARCH_DIR)
-   
-   src_path = os.path.join(SRC_ARCH_DIR, hudson.getTarballName())
-   dst_path = os.path.join(DST_ARCH_DIR, hudson.getTarballName())
-   logging.debug("copying CS tarball from %s to %s"%(src_path, dst_path))
-   ssh.scp("%s" % src_path, "%s" % dst_path)
-   logging.info("%s has been copied to the automation instance %s under %s" % (hudson.getTarballName(), environment['mshost.ip'], DST_ARCH_DIR))
-   
-   return dst_path
-   
-def configureManagementServer(bld, env_config, auto_config):
-    tarball_path = copyBuildToMshost(bld, options.env_config)
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(env_config)
-    environment = dict(cfg.items('environment'))
-    cscfg = configGenerator.get_setup_config(auto_config)
+def configureManagementServer(auto_config, mgmt_host):
+
+    mgmt_vm = mactable[mgmt_host]
+    #Remove and re-add cobbler system
+    bash("cobbler system remove --name=%s"%mgmt_host)
+    bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
+         --netboot-enabled=yes --enable-gpxe=no \
+         --profile=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"], mgmt_host));
+
+    #Revoke all certs from puppetmaster
+    bash("puppetca --revoke --all")
+
+    #Start VM on xenserver
+    xenssh = \
+    remoteSSHClient.remoteSSHClient(mactable["infraxen"]["address"],
+                                    22, "root",
+                                    mactable["infraxen"]["password"])
+
+    logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
+    out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
+                                                  mgmt_vm["ethernet"]))
+
+    logging.debug("started VM with uuid: %s"%out[1]);
+
+#    cscfg = configGenerator.get_setup_config(auto_config)
     
 #    1. erase secondary store
 #    2. seed system VM template
 #    3. setup-databases and setup-management
-    ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/root/redeploy.sh")
-    ssh.execute("chmod +x /root/redeploy.sh")
-    for zone in cscfg.zones:
-        for sstor in zone.secondaryStorages:
-            shost = urlparse.urlsplit(sstor.url).hostname
-            spath = urlparse.urlsplit(sstor.url).path
-#            ssh.execute_buffered("bash redeploy.sh -s %s -a %s -d %s"%(spath, tarball_path, cscfg.dbSvr.dbSvr))
-            bash("ssh %s@%s bash redeploy.sh -s %s -a %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, tarball_path, cscfg.dbSvr.dbSvr))
-            
-    delay(120)
-    _openIntegrationPort(cscfg, env_config)
-    cleanPrimaryStorage(cscfg)
+#    ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
 
+    #FIXME: For Ubuntu
+#    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
+#    ssh.execute("chmod +x /tmp/redeploy.sh")
+#    for zone in cscfg.zones:
+#        for sstor in zone.secondaryStorages:
+#            shost = urlparse.urlsplit(sstor.url).hostname
+#            spath = urlparse.urlsplit(sstor.url).path
+#            bash("ssh %s@%s bash /tmp/redeploy.sh -s %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, cscfg.dbSvr.dbSvr))
+
+#    delay(120)
+
+## TODO: Use Puppet for this
 def _openIntegrationPort(csconfig, env_config):
     dbhost = csconfig.dbSvr.dbSvr
     dbuser = csconfig.dbSvr.user
@@ -135,11 +119,6 @@ def cleanPrimaryStorage(cscfg):
                     if urlparse.urlsplit(primaryStorage.url).scheme == "nfs":
                         mountAndClean(urlparse.urlsplit(primaryStorage.url).hostname, urlparse.urlsplit(primaryStorage.url).path)
 
-def savebuild(hudson):  
-    tarball_url = "http://%s" % hudson.resolveRepoPath()
-    fetch(hudson.getTarballName(), tarball_url, SRC_ARCH_DIR)
-    logging.info("build %s saved under %s" % (hudson.getTarballName(), SRC_ARCH_DIR))
-    
 def refreshHosts(auto_config):
     hostlist = []
     cscfg = configGenerator.get_setup_config(auto_config)
@@ -160,6 +139,9 @@ def refreshHosts(auto_config):
                         delay(30)
                     else:
                         logging.warn("No ipmi host found against %s"%hostname)
+    cleanPrimaryStorage(cscfg)
+    logging.info("Cleaned up primary stores")
+
     logging.info("Waiting for hosts to refresh")
     _waitForHostReady(hostlist)
 
@@ -193,42 +175,30 @@ def _waitForHostReady(hostlist):
 
 def init():
     initLogging()
-    mkdirs(SRC_ARCH_DIR)
-    mkdirs(WORKSPACE)
         
 if __name__ == '__main__':
+    init()
+
     parser = OptionParser()
-    parser.add_option("-b", "--build-config", action="store", default=None, dest="build_config", help="the path where the configuration of the build is stored")
-    parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
-    parser.add_option("-d", "--deployment-config", action="store", default="automation.cfg", dest="auto_config", help="json spec of deployment")
-    parser.add_option("-n", "--build-number", action="store", default=None, dest="build_number", help="CloudStack build number")
-    parser.add_option("-s", "--skip-host", action="store_true", default=False, dest="skip_host", help="Skip Host Refresh")
-    parser.add_option("-m", "--install-marvin", action="store_true", default=True, dest="install_marvin", help="Install Marvin")
+    parser.add_option("-v", "--hypervisor", action="store", default="xen",
+                      dest="hypervisor", help="hypervisor type")
+    parser.add_option("-d", "--distro", action="store", default="rhel",
+                      dest="distro", help="management server distro")
+    parser.add_option("-s", "--skip-host", action="store_true", default=False,
+                      dest="skip_host", help="Skip Host Refresh")
     (options, args) = parser.parse_args()
 
-    if options.build_number is None and options.build_config is None:
-        raise AttributeError("must provide a configuration file for the build or a build number")
-    if options.build_config is not None and options.build_number is not None:
-        raise AttributeError("either build.cfg is provided or the build number - not both")
-        
-    if options.env_config is None:
-        raise AttributeError("please provide the server configuration file")
-    
-    if options.auto_config is None:
-        raise AttributeError("please provide the spec file for your deployment")
+    if options.hypervisor == "xen":
+        auto_config = "xen.cfg"
+    elif options.hypervisor == "kvm":
+        auto_config = "kvm.cfg"
+    else:
+        auto_config = "xen.cfg"
 
-    init()
-    
-    bld = build(options.build_config, options.build_number, "CloudStack-PRIVATE")
-    savebuild(bld)
-    configureManagementServer(bld, options.env_config, options.auto_config)
-    if not options.skip_host:
-        refreshHosts(options.auto_config)
+    mgmt_host = "cloudstack-"+options.distro
 
-    if not options.install_marvin:
-        if options.build_config:
-            bld = build(options.build_config, 0, "marvin-testclient")
-            for k, v in bld.getArtifacts().iteritems(): 
-                fetch(k, v.url, SRC_ARCH_DIR)
-                bash("pip uninstall -y marvin")
-                bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
+    logging.info("configuring %s for hypervisor %s"%(mgmt_host,
+                                                     options.hypervisor))
+    configureManagementServer(auto_config, mgmt_host)
+#    if not options.skip_host:
+#sysl        refreshHosts(options.auto_config)
