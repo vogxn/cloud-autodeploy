@@ -25,7 +25,7 @@ import errno
 WORKSPACE="/root"
 IPMI_PASS="calvin"
 
-def initLogging(logFile=None, lvl=logging.INFO):
+def initLogging(logFile=None, lvl=logging.DEBUG):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
@@ -132,7 +132,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     #setup cobbler profiles and systems
                     try:
                         hostmac = mactable[hostname]['ethernet']
-                        bash("cobbler remove system \
+                        bash("cobbler system remove \
                              --name=%s-%s"%(hostname, hypervisor))
                         bash("cobbler system add --name=%s-%s --hostname=%s \
                              --mac-address=%s --netboot-enabled=yes \
