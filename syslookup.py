@@ -1,10 +1,17 @@
 #Lookups for DHCP and IPMI addresses
 ipmitable = {
+    #by ip
     "10.223.75.2": "10.223.103.86",
     "10.223.75.20": "10.223.103.87",
     "10.223.75.9": "10.223.103.99",
     "10.223.78.20": "10.223.103.96",
-    "10.223.78.131": "10.223.103.97",
+
+    #by fqdn
+    "infra": "10.223.103.86",
+    "acs-qa-h11": "10.223.103.87",
+    "acs-qa-h20": "10.223.103.96",
+    "acs-qa-h21": "Unknown",
+    "acs-qa-h23": "Unknown",
 }
 
 #Basically lists entire dhcp table

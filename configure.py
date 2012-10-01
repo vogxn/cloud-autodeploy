@@ -131,9 +131,9 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 
                     #setup cobbler profiles and systems
                     try:
-                        hostmac = mactable[hostname]
+                        hostmac = mactable[hostname]['ethernet']
                         bash("cobbler remove system \
-                             --name=%s-%s"%(hostname,hypervisor))
+                             --name=%s-%s"%(hostname, hypervisor))
                         bash("cobbler system add --name=%s-%s --hostname=%s \
                              --mac-address=%s --netboot-enabled=yes \
                              --enable-gpxe=no --profile=%s"%(hostname, hypervisor,
