@@ -49,8 +49,7 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
-def configureManagementServer(auto_config, mgmt_host):
-
+def configureManagementServer(mgmt_host):
     mgmt_vm = mactable[mgmt_host]
     #Remove and re-add cobbler system
     bash("cobbler system remove --name=%s"%mgmt_host)
@@ -71,27 +70,8 @@ def configureManagementServer(auto_config, mgmt_host):
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
-    logging.debug("started VM with uuid: %s"%out[1]);
+    logging.debug("started mgmt VM with uuid: %s"%out[1]);
 
-#    cscfg = configGenerator.get_setup_config(auto_config)
-    
-#    1. erase secondary store
-#    2. seed system VM template
-#    3. setup-databases and setup-management
-#    ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-
-    #FIXME: For Ubuntu
-#    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
-#    ssh.execute("chmod +x /tmp/redeploy.sh")
-#    for zone in cscfg.zones:
-#        for sstor in zone.secondaryStorages:
-#            shost = urlparse.urlsplit(sstor.url).hostname
-#            spath = urlparse.urlsplit(sstor.url).path
-#            bash("ssh %s@%s bash /tmp/redeploy.sh -s %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, cscfg.dbSvr.dbSvr))
-
-#    delay(120)
-
-## TODO: Use Puppet for this
 def _openIntegrationPort(csconfig, env_config):
     dbhost = csconfig.dbSvr.dbSvr
     dbuser = csconfig.dbSvr.user
@@ -119,9 +99,24 @@ def cleanPrimaryStorage(cscfg):
                     if urlparse.urlsplit(primaryStorage.url).scheme == "nfs":
                         mountAndClean(urlparse.urlsplit(primaryStorage.url).hostname, urlparse.urlsplit(primaryStorage.url).path)
 
-def refreshHosts(auto_config):
+def seedSecondaryStorage(cscfg):
+    """
+    erase secondary store and seed system VM template
+    """
+    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
+    ssh.execute("chmod +x /tmp/redeploy.sh")
+    for zone in cscfg.zones:
+        for sstor in zone.secondaryStorages:
+            shost = urlparse.urlsplit(sstor.url).hostname
+            spath = urlparse.urlsplit(sstor.url).path
+            bash("ssh %s@%s bash /tmp/redeploy.sh -s %s"%(environment['mshost.username'], environment['mshost.ip'], spath))
+    delay(120)
+
+def refreshHosts(cscfg, hypervisor="xen"):
+    """
+    default to Xenserver
+    """
     hostlist = []
-    cscfg = configGenerator.get_setup_config(auto_config)
     for zone in cscfg.zones:
         for pod in zone.pods:
             for cluster in pod.clusters:
@@ -139,11 +134,14 @@ def refreshHosts(auto_config):
                         delay(30)
                     else:
                         logging.warn("No ipmi host found against %s"%hostname)
-    cleanPrimaryStorage(cscfg)
-    logging.info("Cleaned up primary stores")
-
     logging.info("Waiting for hosts to refresh")
     _waitForHostReady(hostlist)
+
+def refreshStorage(cscfg, hypervisor="xen"):
+    cleanPrimaryStorage(cscfg)
+    logging.info("Cleaned up primary stores")
+    seedSecondaryStorage(cscfg)
+    logging.info("Secondary storage seeded with systemvm templates")
 
 def _waitForHostReady(hostlist):
     #TODO:select on ssh channel for all hosts
@@ -199,6 +197,8 @@ if __name__ == '__main__':
 
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
-    configureManagementServer(auto_config, mgmt_host)
-#    if not options.skip_host:
-#sysl        refreshHosts(options.auto_config)
+    configureManagementServer(mgmt_host)
+    if not options.skip_host:
+        cscfg = configGenerator.get_setup_config(auto_config)
+        refreshHosts(cscfg, options.hypervisor)
+        refreshStorage(cscfg, options.hypervisor)

@@ -82,13 +82,6 @@ else
         service cloud-management stop
 fi
 
-#set selinux to permissive
-if [[ $(getenforce)=="Enforcing" ]]
-then
-    echo "Disabling SELinux"
-    $(setenforce permissive)
-fi
-
 if [[ "$aflag" == "1" ]]
 then
 	#clear up yum cache
@@ -106,7 +99,7 @@ then
 		mkdir -p /tmp/$dir
 		tar -xvzf $apath -C /tmp/$dir
 		installer_script=$(find /tmp/$dir -name install.sh)
-		bash $installer_script -m #TODO: Pradeep's installer with options
+		bash $installer_script -m 
                 bash rm -rf /tmp/$dir
 	else
 		echo "Cannot find cloudstack in $apath"
@@ -136,11 +129,11 @@ then
 		cloud-setup-databases cloud:cloud@$dbase --deploy-as=root 
 	fi
 else
-	cloud-setup-databases cloud:cloud@localhost --deploy-as=root
+	echo "Only seeding template. No database refresh"
 fi
 
 #replace disk size reqd to 1GB max
-sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt
+sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt
 
 if [[ "$sflag" == "1" ]]
 then
@@ -150,15 +143,15 @@ then
 
 	if [[ "$hflag" == "1" && "$hypervisor" == "xenserver" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
+		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
 	elif [[ "$hflag" == "1" && "$hypervisor" == "kvm" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.qcow2.bz2 -h kvm
+		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.qcow2.bz2 -h kvm
 	elif [[ "$hflag" == "1" && "$hypervisor" == "vmware" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.ova -h vmware
+		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.ova -h vmware
 	else
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
+		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
 	fi
 	umount /tmp/secondary
 fi
