@@ -4,7 +4,7 @@ from buildGenerator import BuildGenerator
 from marvin import configGenerator
 from marvin import remoteSSHClient
 from marvin import dbConnection
-from optparse import OptionParser
+from argparse import ArgumentParser
 from syslookup import ipmitable
 from syslookup import mactable
 from time import sleep as delay
@@ -12,6 +12,7 @@ import bashUtils
 import buildGenerator
 import logging
 import marvin
+import sys
 import os
 import random
 import string
@@ -22,6 +23,7 @@ import select
 import errno
 
 WORKSPACE="/root"
+IPMI_PASS="calvin"
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -112,9 +114,11 @@ def seedSecondaryStorage(cscfg):
             bash("ssh %s@%s bash /tmp/redeploy.sh -s %s"%(environment['mshost.username'], environment['mshost.ip'], spath))
     delay(120)
 
-def refreshHosts(cscfg, hypervisor="xen"):
+def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
     """
-    default to Xenserver
+    Removes cobbler system from previous run. 
+    Creates a new system for current run.
+    Ipmi boots from PXE - default to Xenserver profile
     """
     hostlist = []
     for zone in cscfg.zones:
@@ -124,17 +128,36 @@ def refreshHosts(cscfg, hypervisor="xen"):
                     hostname = urlparse.urlsplit(host.url).hostname
                     hostlist.append(hostname)
                     logging.debug("attempting to refresh host %s"%hostname)
-                    ipmi_hostname = ipmitable[hostname]
+
+                    #setup cobbler profiles and systems
+                    try:
+                        hostmac = mactable[hostname]
+                        bash("cobbler remove system \
+                             --name=%s-%s"%(hostname,hypervisor))
+                        bash("cobbler system add --name=%s-%s --hostname=%s \
+                             --mac-address=%s --netboot-enabled=yes \
+                             --enable-gpxe=no --profile=%s"%(hostname, hypervisor,
+                                                             hostname, hostmac,
+                                                             profile))
+                    except KeyError:
+                        logging.error("No mac found against host %s. Exiting"%hostname)
+                        sys.exit(2)
+
                     #set ipmi to boot from PXE
-                    if ipmi_hostname is not None:
+                    try:
+                        ipmi_hostname = ipmitable[hostname]
                         logging.debug("found IPMI nic on %s for host %s"%(ipmi_hostname, hostname))
-                        bash("ipmitool -Uroot -Pcalvin -H%s chassis bootdev pxe"%ipmi_hostname)
-                        bash("ipmitool -Uroot -Pcalvin -H%s chassis power cycle"%ipmi_hostname)           
+                        bash("ipmitool -Uroot -P%s -H%s chassis bootdev
+                             pxe"%ipmi_hostname, IPMI_PASS))
+                        bash("ipmitool -Uroot -P%s -H%s chassis power
+                             cycle"%ipmi_hostname, IPMI_PASS))
                         logging.debug("Sent PXE boot for %s"%ipmi_hostname)
-                        delay(30)
-                    else:
-                        logging.warn("No ipmi host found against %s"%hostname)
+                    except KeyError:
+                        logging.error("No ipmi host found against %s. Exiting"%hostname)
+                        sys.exit(2)
+
     logging.info("Waiting for hosts to refresh")
+    delay(30)
     _waitForHostReady(hostlist)
 
 def refreshStorage(cscfg, hypervisor="xen"):
@@ -177,14 +200,16 @@ def init():
 if __name__ == '__main__':
     init()
 
-    parser = OptionParser()
-    parser.add_option("-v", "--hypervisor", action="store", default="xen",
+    parser = ArgumentParser()
+    parser.add_argument("-v", "--hypervisor", action="store", default="xen",
                       dest="hypervisor", help="hypervisor type")
-    parser.add_option("-d", "--distro", action="store", default="rhel",
+    parser.add_argument("-d", "--distro", action="store", default="rhel",
                       dest="distro", help="management server distro")
-    parser.add_option("-s", "--skip-host", action="store_true", default=False,
+    parser.add_argument("-s", "--skip-host", action="store_true", default=False,
                       dest="skip_host", help="Skip Host Refresh")
-    (options, args) = parser.parse_args()
+    parser.add_argument("-p", "--profile", action="store", default="xen602",
+                      dest="profile", help="cobbler profile for hypervisor")
+    options = parser.parse_args()
 
     if options.hypervisor == "xen":
         auto_config = "xen.cfg"
@@ -194,11 +219,10 @@ if __name__ == '__main__':
         auto_config = "xen.cfg"
 
     mgmt_host = "cloudstack-"+options.distro
-
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
     configureManagementServer(mgmt_host)
     if not options.skip_host:
         cscfg = configGenerator.get_setup_config(auto_config)
-        refreshHosts(cscfg, options.hypervisor)
+        refreshHosts(cscfg, options.hypervisor, options.profile)
         refreshStorage(cscfg, options.hypervisor)
