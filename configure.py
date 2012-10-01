@@ -148,9 +148,9 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                         ipmi_hostname = ipmitable[hostname]
                         logging.debug("found IPMI nic on %s for host %s"%(ipmi_hostname, hostname))
                         bash("ipmitool -Uroot -P%s -H%s chassis bootdev \
-                             pxe"%(ipmi_hostname, IPMI_PASS))
+                             pxe"%(IPMI_PASS, ipmi_hostname))
                         bash("ipmitool -Uroot -P%s -H%s chassis power cycle"
-                             %(ipmi_hostname, IPMI_PASS))
+                             %(IPMI_PASS, ipmi_hostname))
                         logging.debug("Sent PXE boot for %s"%ipmi_hostname)
                     except KeyError:
                         logging.error("No ipmi host found against %s. Exiting"%hostname)
