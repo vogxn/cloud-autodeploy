@@ -69,6 +69,7 @@ def configureManagementServer(mgmt_host):
                                     mactable["infraxen"]["password"])
 
     logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
+    xenssh.execute("xe vm-uninstall force=true vm=%s"%mgmt_host)
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
@@ -133,12 +134,11 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     try:
                         hostmac = mactable[hostname]['ethernet']
                         bash("cobbler system remove \
-                             --name=%s-%s"%(hostname, hypervisor))
-                        bash("cobbler system add --name=%s-%s --hostname=%s \
+                             --name=%s"%(hostname))
+                        bash("cobbler system add --name=%s --hostname=%s \
                              --mac-address=%s --netboot-enabled=yes \
-                             --enable-gpxe=no --profile=%s"%(hostname, hypervisor,
-                                                             hostname, hostmac,
-                                                             profile))
+                             --enable-gpxe=no --profile=%s"%(hostname, hostname,
+                                                             hostmac, profile))
                     except KeyError:
                         logging.error("No mac found against host %s. Exiting"%hostname)
                         sys.exit(2)
