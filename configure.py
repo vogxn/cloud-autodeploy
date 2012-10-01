@@ -130,6 +130,9 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     hostlist.append(hostname)
                     logging.debug("attempting to refresh host %s"%hostname)
 
+                    #revoke certs
+                    bash("puppet cert clean %s.cloudstack.org"%hostname)
+
                     #setup cobbler profiles and systems
                     try:
                         hostmac = mactable[hostname]['ethernet']
