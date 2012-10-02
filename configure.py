@@ -22,7 +22,7 @@ import socket
 import select
 import errno
 
-WORKSPACE="/root"
+WORKSPACE="."
 IPMI_PASS="calvin"
 
 def initLogging(logFile=None, lvl=logging.DEBUG):
@@ -106,6 +106,9 @@ def seedSecondaryStorage(cscfg):
     """
     erase secondary store and seed system VM template
     """
+    mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    logging.info("Found mgmtserver at %s"%mgmt_server)
+    ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
     ssh.execute("chmod +x /tmp/redeploy.sh")
     for zone in cscfg.zones:
