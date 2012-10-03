@@ -198,6 +198,7 @@ def attemptSshConnect(ready, hostQueue):
                 break
             else:
                 logging.debug("[%s] host %s is not ready"%(err, host))
+                delay(20)
                 channel.close()
     hostQueue.task_done()
 
