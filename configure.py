@@ -181,8 +181,8 @@ def refreshStorage(cscfg, hypervisor="xen"):
     logging.info("Secondary storage seeded with systemvm templates")
 
 def attemptSshConnect(ready, hostQueue):
+    host = hostQueue.get()
     while True:
-        host = hostQueue.get()
         channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         channel.settimeout(20)
         try:
@@ -198,7 +198,6 @@ def attemptSshConnect(ready, hostQueue):
                 hostQueue.task_done()
             else:
                 logging.debug("[%s] host %s is not ready"%(err, host))
-                delay(20)
                 channel.close()
 
 def _waitForHostReady(hostlist):
