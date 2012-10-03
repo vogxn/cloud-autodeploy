@@ -11,6 +11,8 @@ from time import sleep as delay
 import bashUtils
 import buildGenerator
 import logging
+import threading
+import Queue
 import marvin
 import sys
 import os
@@ -29,10 +31,12 @@ def initLogging(logFile=None, lvl=logging.DEBUG):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
-                                format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
+                                format="'%(asctime)-6s: %(name)s \
+                                (%(threadName)s) - %(levelname)s - %(message)s'") 
         else: 
             logging.basicConfig(filename=logFile, level=lvl, \
-                                format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
+                                format="'%(asctime)-6s: %(name)s \
+                                (%(threadName)s) - %(levelname)s - %(message)s'") 
     except:
         logging.basicConfig(level=lvl) 
 
@@ -74,7 +78,8 @@ def configureManagementServer(mgmt_host):
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
-    logging.debug("started mgmt VM with uuid: %s"%out[1]);
+
+    logging.debug("started mgmt VM with uuid: %s. Waiting for services .."%out[1]);
 
 def _openIntegrationPort(csconfig, env_config):
     dbhost = csconfig.dbSvr.dbSvr
@@ -167,8 +172,8 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                         sys.exit(2)
 
     logging.info("Waiting for hosts to refresh")
-    delay(30)
     _waitForHostReady(hostlist)
+    logging.info("All hosts %s are up"%hostlist)
 
 def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
@@ -176,34 +181,40 @@ def refreshStorage(cscfg, hypervisor="xen"):
     seedSecondaryStorage(cscfg)
     logging.info("Secondary storage seeded with systemvm templates")
 
-def _waitForHostReady(hostlist):
-    #TODO:select on ssh channel for all hosts
-    ready = []
-    
-    for host in hostlist:
-        remain = list(set(hostlist) - set(ready))
-        while len(remain) != 0:
-            channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            channel.settimeout(20)
-            #double try older pythons
-            try:
-                try:
-                    err = channel.connect_ex((host, 22))
-                except socket.error, e:
-                        logging.debug("encountered %s retrying in 20s"%e)
-                        delay(20)
-            finally:
-                if err == 0:
-                    ready.append(host)
-                    logging.debug("host: %s is ready"%host)
-                    break #socket in to next host
-                else:
-                    logging.debug("[%s] host %s is not ready"%(err, host))
-                    delay(20)
+def attemptSshConnect(ready, hostQueue):
+    while True:
+        host = hostQueue.get()
+        channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        channel.settimeout(20)
+        try:
+            logging.debug("Attempting ssh connect to host %s"%host)
+            err = channel.connect_ex((host, 22))
+        except socket.error, e:
+            logging.debug("encountered %s retrying in 20s"%e)
+            delay(20)
+        finally:
+            if err == 0:
+                ready.append(host)
+                logging.debug("host: %s is ready"%host)
+                hostQueue.task_done()
+            else:
+                logging.debug("[%s] host %s is not ready"%(err, host))
+                delay(20)
                 channel.close()
-        logging.debug("hosts still remaining: %s"%remain) 
-    
 
+def _waitForHostReady(hostlist):
+    ready = []
+    hostQueue = Queue.Queue()
+
+    for host in hostlist:
+        t = threading.Thread(name='HostWait-%s'%hostlist.index(host), target=attemptSshConnect,
+                             args=(ready, hostQueue, ))
+        t.setDaemon(True)
+        t.start()
+
+    [hostQueue.put(host) for host in hostlist]
+    hostQueue.join()
+    
 def init():
     initLogging()
         
@@ -231,8 +242,14 @@ if __name__ == '__main__':
     mgmt_host = "cloudstack-"+options.distro
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
-    configureManagementServer(mgmt_host)
-    if not options.skip_host:
-        cscfg = configGenerator.get_setup_config(auto_config)
-        refreshHosts(cscfg, options.hypervisor, options.profile)
-        refreshStorage(cscfg, options.hypervisor)
+    mgmtQueue = Queue.Queue()
+    mgmtWorker = threading.Thread(name="MgmtRefresh",
+                                  worker=configureManagementServer, args =
+                                  (mgmt_host,))
+    mgmtQueue.put(mgmt_host)
+
+    cscfg = configGenerator.get_setup_config(auto_config)
+    refreshHosts(cscfg, options.hypervisor, options.profile)
+
+    mgmtQueue.join()
+    refreshStorage(cscfg, options.hypervisor)
