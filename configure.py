@@ -123,6 +123,7 @@ def seedSecondaryStorage(cscfg):
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
     ssh.execute("chmod +x /tmp/redeploy.sh")
+    ssh.scp("/root/.ssh/id_rsa.pub", "/root/.ssh/authorized_keys")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
             shost = urlparse.urlsplit(sstor.url).hostname
