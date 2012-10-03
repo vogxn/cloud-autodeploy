@@ -195,10 +195,11 @@ def attemptSshConnect(ready, hostQueue):
             if err == 0:
                 ready.append(host)
                 logging.debug("host: %s is ready"%host)
-                hostQueue.task_done()
+                break
             else:
                 logging.debug("[%s] host %s is not ready"%(err, host))
                 channel.close()
+    hostQueue.task_done()
 
 def _waitForHostReady(hostlist):
     logging.info("Waiting for hosts to refresh")
