@@ -82,7 +82,7 @@ def configureManagementServer(mgmt_host, mgmtQueue):
     logging.debug("started mgmt VM with uuid: %s. Waiting for services .."%out[1]);
     mgmtWorker = threading.Thread(name="MgmtRefresh",
                                   target=attemptSshConnect, args =
-                                  ([],[mgmt_host],))
+                                  ([],mgmtQueue,))
     mgmtWorker.setDaemon(True)
     mgmtWorker.start()
     mgmtQueue.put(mgmt_host)
