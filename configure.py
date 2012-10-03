@@ -248,6 +248,8 @@ if __name__ == '__main__':
     mgmtWorker = threading.Thread(name="MgmtRefresh",
                                   target=configureManagementServer, args =
                                   (mgmt_host,))
+    mgmtWorker.setDaemon(True)
+    mgmtWorker.start()
     mgmtQueue.put(mgmt_host)
 
     cscfg = configGenerator.get_setup_config(auto_config)
