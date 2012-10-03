@@ -111,7 +111,10 @@ class bash:
         return self.stdout.split("\n")
 
     def getStderr(self):
-        return self.stderr.strip("\n")
+        try:
+            return self.stderr.strip("\n")
+        except AttributeError:
+            return ""
     
     def getErrMsg(self):
         if self.isSuccess():
