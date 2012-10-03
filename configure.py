@@ -58,6 +58,7 @@ def configureManagementServer(mgmt_host):
     bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
          --netboot-enabled=yes --enable-gpxe=no \
          --profile=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"], mgmt_host));
+    bash("cobbler sync")
 
     #Revoke all certs from puppetmaster
     bash("puppet cert clean %s.cloudstack.org"%mgmt_host)
@@ -145,6 +146,8 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                              --mac-address=%s --netboot-enabled=yes \
                              --enable-gpxe=no --profile=%s"%(hostname, hostname,
                                                              hostmac, profile))
+
+                        bash("cobbler sync")
                     except KeyError:
                         logging.error("No mac found against host %s. Exiting"%hostname)
                         sys.exit(2)
