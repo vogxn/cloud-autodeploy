@@ -121,15 +121,13 @@ def seedSecondaryStorage(cscfg):
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
     logging.info("Found mgmtserver at %s"%mgmt_server)
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
-    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/tmp/redeploy.sh")
-    ssh.execute("chmod +x /tmp/redeploy.sh")
-    ssh.scp("/root/.ssh/id_rsa.pub", "/root/.ssh/authorized_keys")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
             shost = urlparse.urlsplit(sstor.url).hostname
             spath = urlparse.urlsplit(sstor.url).path
             logging.info("seeding systemvm template on %s @ %s"%(shost, spath))
-            bash("ssh %s@%s bash /tmp/redeploy.sh -s %s"%('root', mgmt_server, spath))
+            ssh.execute("bash /root/redeploy.sh -s %s"%('root', mgmt_server, spath))
+            #bash("ssh %s@%s bash /tmp/redeploy.sh -s %s"%('root', mgmt_server, spath))
     delay(120)
 
 def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
