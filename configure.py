@@ -245,7 +245,7 @@ if __name__ == '__main__':
                                                      options.hypervisor))
     mgmtQueue = Queue.Queue()
     mgmtWorker = threading.Thread(name="MgmtRefresh",
-                                  worker=configureManagementServer, args =
+                                  target=configureManagementServer, args =
                                   (mgmt_host,))
     mgmtQueue.put(mgmt_host)
 
