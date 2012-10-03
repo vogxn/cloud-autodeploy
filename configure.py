@@ -182,11 +182,11 @@ def refreshStorage(cscfg, hypervisor="xen"):
 
 def attemptSshConnect(ready, hostQueue):
     host = hostQueue.get()
+    logging.debug("Attempting ssh connect to host %s"%host)
     while True:
         channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         channel.settimeout(20)
         try:
-            logging.debug("Attempting ssh connect to host %s"%host)
             err = channel.connect_ex((host, 22))
         except socket.error, e:
             logging.debug("encountered %s retrying in 20s"%e)
@@ -197,7 +197,7 @@ def attemptSshConnect(ready, hostQueue):
                 logging.debug("host: %s is ready"%host)
                 break
             else:
-                logging.debug("[%s] host %s is not ready"%(err, host))
+                logging.debug("[%s] host %s is not ready. Retrying"%(err, host))
                 delay(20)
                 channel.close()
     hostQueue.task_done()
