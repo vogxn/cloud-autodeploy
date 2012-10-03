@@ -171,9 +171,8 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                         logging.error("No ipmi host found against %s. Exiting"%hostname)
                         sys.exit(2)
 
-    logging.info("Waiting for hosts to refresh")
+    delay(5) #to begin pxe boot process or wait returns immediately
     _waitForHostReady(hostlist)
-    logging.info("All hosts %s are up"%hostlist)
 
 def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
@@ -203,6 +202,7 @@ def attemptSshConnect(ready, hostQueue):
                 channel.close()
 
 def _waitForHostReady(hostlist):
+    logging.info("Waiting for hosts to refresh")
     ready = []
     hostQueue = Queue.Queue()
 
@@ -214,6 +214,7 @@ def _waitForHostReady(hostlist):
 
     [hostQueue.put(host) for host in hostlist]
     hostQueue.join()
+    logging.info("All hosts %s are up"%hostlist)
     
 def init():
     initLogging()
@@ -253,3 +254,4 @@ if __name__ == '__main__':
 
     mgmtQueue.join()
     refreshStorage(cscfg, options.hypervisor)
+    logging.info("All systems go!")
