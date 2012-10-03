@@ -55,7 +55,7 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
-def configureManagementServer(mgmt_host):
+def configureManagementServer(mgmt_host, mgmtQueue):
     mgmt_vm = mactable[mgmt_host]
     #Remove and re-add cobbler system
     bash("cobbler system remove --name=%s"%mgmt_host)
@@ -80,6 +80,12 @@ def configureManagementServer(mgmt_host):
 
 
     logging.debug("started mgmt VM with uuid: %s. Waiting for services .."%out[1]);
+    mgmtWorker = threading.Thread(name="MgmtRefresh",
+                                  target=attemptSshConnect, args =
+                                  ([],[mgmt_host],))
+    mgmtWorker.setDaemon(True)
+    mgmtWorker.start()
+    mgmtQueue.put(mgmt_host)
 
 def _openIntegrationPort(csconfig, env_config):
     dbhost = csconfig.dbSvr.dbSvr
@@ -245,12 +251,7 @@ if __name__ == '__main__':
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
     mgmtQueue = Queue.Queue()
-    mgmtWorker = threading.Thread(name="MgmtRefresh",
-                                  target=configureManagementServer, args =
-                                  (mgmt_host,))
-    mgmtWorker.setDaemon(True)
-    mgmtWorker.start()
-    mgmtQueue.put(mgmt_host)
+    configureManagementServer(mgmt_host, mgmtQueue)
 
     cscfg = configGenerator.get_setup_config(auto_config)
     refreshHosts(cscfg, options.hypervisor, options.profile)
