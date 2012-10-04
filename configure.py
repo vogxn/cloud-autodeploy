@@ -87,7 +87,7 @@ def configureManagementServer(mgmt_host, mgmtQueue):
     mgmtWorker.start()
     mgmtQueue.put(mgmt_host)
 
-def _openIntegrationPort(csconfig, env_config):
+def _openIntegrationPort(csconfig):
     dbhost = csconfig.dbSvr.dbSvr
     dbuser = csconfig.dbSvr.user
     dbpasswd = csconfig.dbSvr.passwd
@@ -119,6 +119,13 @@ def seedSecondaryStorage(cscfg):
     erase secondary store and seed system VM template
     """
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    for zone in cscfg.zones:
+        for sstor in zone.secondaryStorages:
+            shost = urlparse.urlsplit(sstor.url).hostname
+            spath = urlparse.urlsplit(sstor.url).path
+            logging.info("seeding systemvm template on %s @ %s"%(shost, spath))
+    delay(120)
+
     logging.info("Found mgmtserver at %s"%mgmt_server)
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     for zone in cscfg.zones:
@@ -255,5 +262,6 @@ if __name__ == '__main__':
     refreshHosts(cscfg, options.hypervisor, options.profile)
 
     mgmtQueue.join()
+    _openIntegrationPort(cscfg)
     refreshStorage(cscfg, options.hypervisor)
     logging.info("All systems go!")

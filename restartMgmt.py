@@ -6,18 +6,16 @@ from time import sleep as delay
 
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
+    parser.add_option("-c", "--config", action="store", default="xen.cfg",
+                      dest="config", help="the path where the server configurations is stored")
     (options, args) = parser.parse_args()
     
-    if options.env_config is None:
+    if options.config is None:
         logging.error("please provide the server configuration file")
         raise
 
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(options.env_config)
-    environment = dict(cfg.items('environment'))
-
-    mgmt_ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-    mgmt_ssh.execute("service cloud-management restart")
+    mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    logging.info("Found mgmtserver at %s"%mgmt_server)
+    ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
+    ssh.execute("service cloud-management restart")
     delay(120)
