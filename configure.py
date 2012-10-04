@@ -1,6 +1,5 @@
 from ConfigParser import ConfigParser
 from bashUtils import bash
-from buildGenerator import BuildGenerator
 from marvin import configGenerator
 from marvin import remoteSSHClient
 from marvin import dbConnection
@@ -9,7 +8,6 @@ from syslookup import ipmitable
 from syslookup import mactable
 from time import sleep as delay
 import bashUtils
-import buildGenerator
 import logging
 import threading
 import Queue
