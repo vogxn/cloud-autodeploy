@@ -127,7 +127,6 @@ def seedSecondaryStorage(cscfg):
             spath = urlparse.urlsplit(sstor.url).path
             logging.info("seeding systemvm template on %s @ %s"%(shost, spath))
             ssh.execute("bash /root/redeploy.sh -s %s"%(spath))
-            #bash("ssh %s@%s bash /tmp/redeploy.sh -s %s"%('root', mgmt_server, spath))
     delay(120)
 
 def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
