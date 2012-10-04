@@ -10,8 +10,8 @@ ipmitable = {
     "infra": "10.223.103.86",
     "acs-qa-h11": "10.223.103.87",
     "acs-qa-h20": "10.223.103.96",
-    "acs-qa-h21": "Unknown",
-    "acs-qa-h23": "Unknown",
+    "acs-qa-h21": "10.223.103.97",
+    "acs-qa-h23": "10.223.103.99",
 }
 
 #Basically lists entire dhcp table
