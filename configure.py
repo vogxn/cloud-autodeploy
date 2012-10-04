@@ -257,7 +257,8 @@ if __name__ == '__main__':
     configureManagementServer(mgmt_host, mgmtQueue)
 
     cscfg = configGenerator.get_setup_config(auto_config)
-    refreshHosts(cscfg, options.hypervisor, options.profile)
+    if not option.skip_host:
+        refreshHosts(cscfg, options.hypervisor, options.profile)
 
     mgmtQueue.join()
     _openIntegrationPort(cscfg)
