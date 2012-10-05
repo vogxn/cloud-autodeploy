@@ -210,7 +210,7 @@ def describeResources(config):
 
     secondary1 = secondaryStorage()
     secondary1.url = config.get('cloudstack', 'z1.secondary.pool')
-    z.secondaryStorages.append(secondary1)
+    z1.secondaryStorages.append(secondary1)
 
     '''Add zone'''
     zs.zones.append(z)
