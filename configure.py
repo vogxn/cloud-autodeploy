@@ -112,26 +112,19 @@ def cleanPrimaryStorage(cscfg):
                     if urlparse.urlsplit(primaryStorage.url).scheme == "nfs":
                         mountAndClean(urlparse.urlsplit(primaryStorage.url).hostname, urlparse.urlsplit(primaryStorage.url).path)
 
-def seedSecondaryStorage(cscfg):
+def seedSecondaryStorage(cscfg, hypervisor):
     """
     erase secondary store and seed system VM template
     """
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
-    for zone in cscfg.zones:
-        for sstor in zone.secondaryStorages:
-            shost = urlparse.urlsplit(sstor.url).hostname
-            spath = urlparse.urlsplit(sstor.url).path
-            logging.info("seeding systemvm template on %s @ %s"%(shost, spath))
-    delay(120)
-
     logging.info("Found mgmtserver at %s"%mgmt_server)
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
             shost = urlparse.urlsplit(sstor.url).hostname
             spath = urlparse.urlsplit(sstor.url).path
-            logging.info("seeding systemvm template on %s @ %s"%(shost, spath))
-            ssh.execute("bash /root/redeploy.sh -s %s"%(spath))
+            logging.info("seeding %s systemvm template on %s @ %s"%(hypervisor, shost, spath))
+            ssh.execute("bash /root/redeploy.sh -s %s -h %s"%(spath, hypervisor))
     delay(120)
 
 def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
@@ -186,7 +179,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
     logging.info("Cleaned up primary stores")
-    seedSecondaryStorage(cscfg)
+    seedSecondaryStorage(cscfg, hypervisor)
     logging.info("Secondary storage seeded with systemvm templates")
 
 def attemptSshConnect(ready, hostQueue):
