@@ -114,18 +114,18 @@ def cleanPrimaryStorage(cscfg):
 
 def seedSecondaryStorage(cscfg, hypervisor):
     """
-    erase secondary store and seed system VM template
+    erase secondary store and seed system VM template via puppet
     """
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
     logging.info("Found mgmtserver at %s"%mgmt_server)
-    ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
+    bash("rm -f /etc/puppet/modules/cloudstack/files/secseeder.sh")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
             shost = urlparse.urlsplit(sstor.url).hostname
             spath = urlparse.urlsplit(sstor.url).path
             logging.info("seeding %s systemvm template on %s @ %s"%(hypervisor, shost, spath))
-            ssh.execute("bash /root/redeploy.sh -s %s -h %s"%(spath, hypervisor))
-    delay(120)
+            bash("echo './redeploy.sh -s %s -h %s' >> /etc/puppet/modules/cloudstack/files/secseeder.sh"%(spath, hypervisor))
+    bash("chmod +x /etc/puppet/modules/cloudstack/files/secseeder.sh")
 
 def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
     """
@@ -179,8 +179,6 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
     logging.info("Cleaned up primary stores")
-    seedSecondaryStorage(cscfg, hypervisor)
-    logging.info("Secondary storage seeded with systemvm templates")
 
 def attemptSshConnect(ready, hostQueue):
     host = hostQueue.get()
@@ -247,9 +245,14 @@ if __name__ == '__main__':
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
     mgmtQueue = Queue.Queue()
-    configureManagementServer(mgmt_host, mgmtQueue)
 
     cscfg = configGenerator.get_setup_config(auto_config)
+    seedSecondaryStorage(cscfg, options.hypervisor)
+    logging.info("Secondary storage seeded via puppet with systemvm templates")
+
+    logging.info("Configuring management server")
+    configureManagementServer(mgmt_host, mgmtQueue)
+
     if not options.skip_host:
         refreshHosts(cscfg, options.hypervisor, options.profile)
 
