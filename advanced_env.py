@@ -140,7 +140,7 @@ def describeResources(config):
     ps2 = primaryStorage()
     ps2.name = 'z0p1c0ps0'
     ps2.url = config.get('cloudstack', 'z0p1c0ps0.primary.pool')
-    c.primaryStorages.append(ps2)
+    c1.primaryStorages.append(ps2)
 
     p1.clusters.append(c1)
     z.pods.append(p1)
