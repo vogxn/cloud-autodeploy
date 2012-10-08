@@ -14,7 +14,7 @@ if __name__ == '__main__':
         logging.error("please provide the server configuration file")
         raise
 
-    mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    mgmt_server = options.config.mgtSvr[0].mgtSvrIp
     logging.info("Found mgmtserver at %s"%mgmt_server)
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     ssh.execute("service cloud-management restart")
