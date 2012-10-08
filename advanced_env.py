@@ -152,69 +152,69 @@ def describeResources(config):
 
 
     #Zone 2
-    z1 = zone()
-    z1.dns1 = config.get('environment', 'dns')
-    z1.internaldns1 = config.get('environment', 'dns')
-    z1.name = 'z1'
-    z1.vlan = config.get('cloudstack', 'z1.zone.vlan')
-    z1.networktype = 'Advanced'
-    z1.guestcidraddress = '10.1.1.0/24'
-
-    vpcprovider = provider()
-    vpcprovider.name = 'VpcVirtualRouter'
-    
-    pn1 = physical_network()
-    pn1.name = "z1-pnet"
-    pn1.traffictypes = [traffictype("Guest"), traffictype("Management"), traffictype("Public")]
-    pn1.providers.append(vpcprovider)
-    
-    z1.physical_networks.append(pn1)
-
-    #Pod 2
-    p2 = pod()
-    p2.name = 'z1p0'
-    p2.gateway = config.get('cloudstack', 'z1p0.private.gateway')
-    p2.startip =  config.get('cloudstack', 'z1p0.private.pod.startip')
-    p2.endip =  config.get('cloudstack', 'z1p0.private.pod.endip')
-    p2.netmask = config.get('cloudstack', 'z1p0.private.netmask')
-
-    #Second public range
-    v2 = iprange()
-    v2.gateway = config.get('cloudstack', 'z1p0.public.gateway')
-    v2.startip = config.get('cloudstack', 'z1p0.public.vlan.startip')
-    v2.endip = config.get('cloudstack', 'z1p0.public.vlan.endip') 
-    v2.netmask = config.get('cloudstack', 'z1p0.public.netmask')
-    v2.vlan = config.get('cloudstack', 'z1p0.public.vlan')
-    z1.ipranges.append(v2)
-
-    #cluster in pod 2
-    c2 = cluster()
-    c2.clustername = 'z1p0c0'
-    c2.hypervisor = config.get('cloudstack', 'hypervisor')
-    c2.clustertype = 'CloudManaged'
-
-    #Host 1
-    h3 = host()
-    h3.username = 'root'
-    h3.password = config.get('cloudstack', 'host.password')
-    h3.url = 'http://%s'%(config.get('cloudstack', 'z1p0c0h0.host'))
-    c2.hosts.append(h3)
-    #Primary 1
-    ps3 = primaryStorage()
-    ps3.name = 'z1p0c0ps0'
-    ps3.url = config.get('cloudstack', 'z1p0c0ps0.primary.pool')
-    c2.primaryStorages.append(ps3)
-
-    p2.clusters.append(c2)
-    z1.pods.append(p2)
-
-    secondary1 = secondaryStorage()
-    secondary1.url = config.get('cloudstack', 'z1.secondary.pool')
-    z1.secondaryStorages.append(secondary1)
-
+#    z1 = zone()
+#    z1.dns1 = config.get('environment', 'dns')
+#    z1.internaldns1 = config.get('environment', 'dns')
+#    z1.name = 'z1'
+#    z1.vlan = config.get('cloudstack', 'z1.zone.vlan')
+#    z1.networktype = 'Advanced'
+#    z1.guestcidraddress = '10.1.1.0/24'
+#
+#    vpcprovider = provider()
+#    vpcprovider.name = 'VpcVirtualRouter'
+#    
+#    pn1 = physical_network()
+#    pn1.name = "z1-pnet"
+#    pn1.traffictypes = [traffictype("Guest"), traffictype("Management"), traffictype("Public")]
+#    pn1.providers.append(vpcprovider)
+#    
+#    z1.physical_networks.append(pn1)
+#
+#    #Pod 2
+#    p2 = pod()
+#    p2.name = 'z1p0'
+#    p2.gateway = config.get('cloudstack', 'z1p0.private.gateway')
+#    p2.startip =  config.get('cloudstack', 'z1p0.private.pod.startip')
+#    p2.endip =  config.get('cloudstack', 'z1p0.private.pod.endip')
+#    p2.netmask = config.get('cloudstack', 'z1p0.private.netmask')
+#
+#    #Second public range
+#    v2 = iprange()
+#    v2.gateway = config.get('cloudstack', 'z1p0.public.gateway')
+#    v2.startip = config.get('cloudstack', 'z1p0.public.vlan.startip')
+#    v2.endip = config.get('cloudstack', 'z1p0.public.vlan.endip') 
+#    v2.netmask = config.get('cloudstack', 'z1p0.public.netmask')
+#    v2.vlan = config.get('cloudstack', 'z1p0.public.vlan')
+#    z1.ipranges.append(v2)
+#
+#    #cluster in pod 2
+#    c2 = cluster()
+#    c2.clustername = 'z1p0c0'
+#    c2.hypervisor = config.get('cloudstack', 'hypervisor')
+#    c2.clustertype = 'CloudManaged'
+#
+#    #Host 1
+#    h3 = host()
+#    h3.username = 'root'
+#    h3.password = config.get('cloudstack', 'host.password')
+#    h3.url = 'http://%s'%(config.get('cloudstack', 'z1p0c0h0.host'))
+#    c2.hosts.append(h3)
+#    #Primary 1
+#    ps3 = primaryStorage()
+#    ps3.name = 'z1p0c0ps0'
+#    ps3.url = config.get('cloudstack', 'z1p0c0ps0.primary.pool')
+#    c2.primaryStorages.append(ps3)
+#
+#    p2.clusters.append(c2)
+#    z1.pods.append(p2)
+#
+#    secondary1 = secondaryStorage()
+#    secondary1.url = config.get('cloudstack', 'z1.secondary.pool')
+#    z1.secondaryStorages.append(secondary1)
+#
     '''Add zone'''
     zs.zones.append(z)
-    zs.zones.append(z1)
+#    zs.zones.append(z1)
 
     '''Add mgt server'''
     mgt = managementServer()
