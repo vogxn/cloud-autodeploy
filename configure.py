@@ -76,13 +76,19 @@ def configureManagementServer(mgmt_host, mgmtQueue):
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
-
     logging.debug("started mgmt VM with uuid: %s. Waiting for services .."%out[1]);
     mgmtWorker = threading.Thread(name="MgmtRefresh",
                                   target=attemptSshConnect, args =
                                   ([],mgmtQueue,))
     mgmtWorker.setDaemon(True)
     mgmtWorker.start()
+    mgmtQueue.put(mgmt_host)
+
+    mysqlWorker = threading.Thread(name="MySqlServer", target=attemptSshConnect,
+                                   args=([], mgmtQueue, 3306))
+    mysqlWorker.setDaemon(True)
+    mysqlWorker.start()
+
     mgmtQueue.put(mgmt_host)
 
 def _openIntegrationPort(csconfig):
@@ -180,14 +186,14 @@ def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
     logging.info("Cleaned up primary stores")
 
-def attemptSshConnect(ready, hostQueue):
+def attemptSshConnect(ready, hostQueue, port=22):
     host = hostQueue.get()
     logging.debug("Attempting ssh connect to host %s"%host)
     while True:
         channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         channel.settimeout(20)
         try:
-            err = channel.connect_ex((host, 22))
+            err = channel.connect_ex((host, port))
         except socket.error, e:
             logging.debug("encountered %s retrying in 20s"%e)
             delay(20)
