@@ -188,7 +188,7 @@ def refreshStorage(cscfg, hypervisor="xen"):
 
 def attemptSshConnect(ready, hostQueue, port=22):
     host = hostQueue.get()
-    logging.debug("Attempting ssh connect to host %s"%host)
+    logging.debug("Attempting port=%s connect to host %s"%(port, host))
     while True:
         channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         channel.settimeout(20)
