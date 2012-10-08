@@ -84,13 +84,6 @@ def configureManagementServer(mgmt_host, mgmtQueue):
     mgmtWorker.start()
     mgmtQueue.put(mgmt_host)
 
-    mysqlWorker = threading.Thread(name="MySqlServer", target=attemptSshConnect,
-                                   args=([], mgmtQueue, 3306))
-    mysqlWorker.setDaemon(True)
-    mysqlWorker.start()
-
-    mgmtQueue.put(mgmt_host)
-
 def _openIntegrationPort(csconfig):
     dbhost = csconfig.dbSvr.dbSvr
     dbuser = csconfig.dbSvr.user
@@ -263,6 +256,7 @@ if __name__ == '__main__':
         refreshHosts(cscfg, options.hypervisor, options.profile)
 
     mgmtQueue.join()
+    delay(120) #problems when communicating with mysql port are resolved by this delay
     _openIntegrationPort(cscfg)
     refreshStorage(cscfg, options.hypervisor)
     logging.info("All systems go!")
