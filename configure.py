@@ -25,7 +25,7 @@ import errno
 WORKSPACE="."
 IPMI_PASS="calvin"
 
-def initLogging(logFile=None, lvl=logging.DEBUG):
+def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
