@@ -41,8 +41,10 @@ def describeResources(config):
     zs = cloudstackConfiguration()
 
     z = zone()
-    z.dns1 = config.get('environment', 'dns')
-    z.internaldns1 = config.get('environment', 'dns')
+    z.dns1 = config.get('environment', 'dns1')
+    z.dns2 = config.get('environment', 'dns2')
+    z.internaldns1 = config.get('environment', 'internal_dns1')
+    z.internaldns2 = config.get('environment', 'internal_dns2')
     z.name = 'z0'
     z.vlan = config.get('cloudstack', 'z0.zone.vlan')
     z.networktype = 'Advanced'
@@ -151,8 +153,10 @@ def describeResources(config):
 
     #Zone 2
     z1 = zone()
-    z1.dns1 = config.get('environment', 'dns')
-    z1.internaldns1 = config.get('environment', 'dns')
+    z1.dns1 = config.get('environment', 'dns1')
+    z1.dns2 = config.get('environment', 'dns2')
+    z1.internaldns1 = config.get('environment', 'internal_dns1')
+    z1.internaldns2 = config.get('environment', 'internal_dns2')
     z1.name = 'z1'
     z1.vlan = config.get('cloudstack', 'z1.zone.vlan')
     z1.networktype = 'Advanced'
