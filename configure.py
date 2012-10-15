@@ -7,6 +7,8 @@ from argparse import ArgumentParser
 from syslookup import ipmitable
 from syslookup import mactable
 from time import sleep as delay
+from netaddr import IPNetwork
+from netaddr import IPAddress
 import bashUtils
 import logging
 import threading
@@ -24,6 +26,23 @@ import errno
 
 WORKSPACE="."
 IPMI_PASS="calvin"
+CBLR_HOME={ 
+    "eth0" :
+    {
+        "network" : "10.223.75.0/25",
+        "gateway" : "10.223.75.2"
+    },
+    "eth1":
+    {
+        "network" : "10.223.78.0/25",
+        "gateway" : "10.223.78.2"
+    },
+    "eth2":
+    {
+        "network" : "10.223.78.128/25",
+        "gateway" : "10.223.78.130"
+    },
+}
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -53,13 +72,31 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
+def cobblerHomeResolve(ip_address):
+    cblr_home_1 = IPNetwork(CBLR_HOME["eth0"]["network"])
+    cblr_home_2 = IPNetwork(CBLR_HOME["eth1"]["network"])
+    cblr_home_3 = IPNetwork(CBLR_HOME["eth2"]["network"])
+
+    ipAddr = IPAddress(ip_address)
+    
+    if ipAddr in cblr_home_1:
+        return CBLR_HOME["eth0"]["gateway"]
+    elif ipAddr in cblr_home_2:
+        return CBLR_HOME["eth1"]["gateway"]
+    elif ipAddr in cblr_home_3:
+        return CBLR_HOME["eth2"]["gateway"]
+    else:
+        return CBLR_HOME["eth0"]["gateway"]
+
 def configureManagementServer(mgmt_host, mgmtQueue):
     mgmt_vm = mactable[mgmt_host]
+    mgmt_ip = mactable[mgmt_host]["address"]
     #Remove and re-add cobbler system
     bash("cobbler system remove --name=%s"%mgmt_host)
     bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
          --netboot-enabled=yes --enable-gpxe=no \
-         --profile=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"], mgmt_host));
+         --profile=%s --server=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"],
+                                    mgmt_host, cobblerHomeResolve(mgmt_ip)));
     bash("cobbler sync")
 
     #Revoke all certs from puppetmaster
@@ -147,12 +184,14 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     #setup cobbler profiles and systems
                     try:
                         hostmac = mactable[hostname]['ethernet']
+                        hostip = mactable[hostname]['address']
                         bash("cobbler system remove \
                              --name=%s"%(hostname))
                         bash("cobbler system add --name=%s --hostname=%s \
                              --mac-address=%s --netboot-enabled=yes \
-                             --enable-gpxe=no --profile=%s"%(hostname, hostname,
-                                                             hostmac, profile))
+                             --enable-gpxe=no --profile=%s --server=%s"%(hostname, hostname,
+                                                             hostmac, profile,
+                                                                         cobblerHomeResolve(hostip)))
 
                         bash("cobbler sync")
                     except KeyError:
