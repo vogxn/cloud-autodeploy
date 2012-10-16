@@ -160,7 +160,7 @@ def seedSecondaryStorage(cscfg, hypervisor):
             shost = urlparse.urlsplit(sstor.url).hostname
             spath = urlparse.urlsplit(sstor.url).path
             logging.info("seeding %s systemvm template on %s @ %s"%(hypervisor, shost, spath))
-            bash("echo '/bin/bash redeploy.sh -s %s -h %s' >> /etc/puppet/modules/cloudstack/files/secseeder.sh"%(spath, hypervisor))
+            bash("echo '/bin/bash /root/redeploy.sh -s %s -h %s' >> /etc/puppet/modules/cloudstack/files/secseeder.sh"%(spath, hypervisor))
     bash("chmod +x /etc/puppet/modules/cloudstack/files/secseeder.sh")
 
 def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
