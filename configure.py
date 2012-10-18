@@ -213,6 +213,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 
     delay(5) #to begin pxe boot process or wait returns immediately
     _waitForHostReady(hostlist)
+    return hostlist
 
 def refreshStorage(cscfg, hypervisor="xen"):
     cleanPrimaryStorage(cscfg)
@@ -299,3 +300,9 @@ if __name__ == '__main__':
     _openIntegrationPort(cscfg)
     refreshStorage(cscfg, options.hypervisor)
     logging.info("All systems go!")
+    #Re-check because ssh connect works soon as post-installation
+    #occurs. But server is rebooted after post-installation. Assuming the server
+    #is up is wrong in these cases. To avoid this we will check again before
+    #continuing to add the hosts to cloudstack
+    delay(60) 
+    _waitForHostReady(hostlist)
