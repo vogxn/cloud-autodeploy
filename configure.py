@@ -308,3 +308,4 @@ if __name__ == '__main__':
     delay(60) 
     if len(hostlist) > 0:
         _waitForHostReady(hostlist)
+    logging.info("Mgt server is ready. proceeding with deployment and configuration")
