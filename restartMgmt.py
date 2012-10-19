@@ -26,7 +26,7 @@ if __name__ == '__main__':
     timeout = 120
     while timeout > 0:
         try:
-            telnetlib.Telnet(mgmt_server, 8096, timeout=120)
+            tn = telnetlib.Telnet(mgmt_server, 8096, timeout=120)
             break
         except Exception:
             delay(1)

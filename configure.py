@@ -130,7 +130,7 @@ def _openIntegrationPort(csconfig):
     uquery = "update configuration set value=%s where name='integration.api.port'"%csconfig.mgtSvr[0].port
     conn.execute(uquery)
     squery = "select name,value from configuration where name='integration.api.port'"
-    logging.debug("integration port open: "%conn.execute(squery))
+    logging.info("integration port open: "%conn.execute(squery))
        
 def mountAndClean(host, path):
     mnt_path = "/tmp/" + ''.join([random.choice(string.ascii_uppercase) for x in xrange(0, 10)])
@@ -298,7 +298,6 @@ if __name__ == '__main__':
 
     mgmtQueue.join()
     delay(5)
-
     #Re-check because ssh connect works soon as post-installation
     #occurs. But server is rebooted after post-installation. Assuming the server
     #is up is wrong in these cases. To avoid this we will check again before
