@@ -292,8 +292,9 @@ if __name__ == '__main__':
     logging.info("Configuring management server")
     configureManagementServer(mgmt_host, mgmtQueue)
 
+    hostlist = []
     if not options.skip_host:
-        refreshHosts(cscfg, options.hypervisor, options.profile)
+        hostlist = refreshHosts(cscfg, options.hypervisor, options.profile)
 
     mgmtQueue.join()
     delay(120) #problems when communicating with mysql port are resolved by this delay
@@ -305,4 +306,5 @@ if __name__ == '__main__':
     #is up is wrong in these cases. To avoid this we will check again before
     #continuing to add the hosts to cloudstack
     delay(60) 
-    _waitForHostReady(hostlist)
+    if len(hostlist) > 0:
+        _waitForHostReady(hostlist)
