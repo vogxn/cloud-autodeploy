@@ -228,8 +228,8 @@ def attemptSshConnect(ready, hostQueue, port=22):
         try:
             err = channel.connect_ex((host, port))
         except socket.error, e:
-            logging.debug("encountered %s retrying in 20s"%e)
-            delay(20)
+            logging.debug("encountered %s retrying in 5s"%e)
+            delay(5)
         finally:
             if err == 0:
                 ready.append(host)
@@ -237,7 +237,7 @@ def attemptSshConnect(ready, hostQueue, port=22):
                 break
             else:
                 logging.debug("[%s] host %s is not ready. Retrying"%(err, host))
-                delay(20)
+                delay(5)
                 channel.close()
     hostQueue.task_done()
 
@@ -297,15 +297,16 @@ if __name__ == '__main__':
         hostlist = refreshHosts(cscfg, options.hypervisor, options.profile)
 
     mgmtQueue.join()
-    delay(120) #problems when communicating with mysql port are resolved by this delay
-    _openIntegrationPort(cscfg)
-    refreshStorage(cscfg, options.hypervisor)
-    logging.info("All systems go!")
+    delay(5)
+
     #Re-check because ssh connect works soon as post-installation
     #occurs. But server is rebooted after post-installation. Assuming the server
     #is up is wrong in these cases. To avoid this we will check again before
     #continuing to add the hosts to cloudstack
-    delay(60) 
+    hostlist.append(mgmt_host)
     if len(hostlist) > 0:
         _waitForHostReady(hostlist)
-    logging.info("Mgt server is ready. proceeding with deployment and configuration")
+
+    _openIntegrationPort(cscfg)
+    refreshStorage(cscfg, options.hypervisor)
+    logging.info("All systems go!")
