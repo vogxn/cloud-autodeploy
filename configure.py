@@ -44,7 +44,7 @@ CBLR_HOME={
     },
 }
 
-def initLogging(logFile=None, lvl=logging.INFO):
+def initLogging(logFile=None, lvl=logging.DEBUG):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
@@ -88,9 +88,15 @@ def cobblerHomeResolve(ip_address):
     else:
         return CBLR_HOME["eth0"]["gateway"]
 
-def configureManagementServer(mgmt_host, mgmtQueue):
+def configureManagementServer(mgmt_host):
+    """
+    We currently configure all mgmt servers on a single xen HV. In the future
+    replace this by launching instances via the API on a IaaS cloud using
+    desired template
+    """
     mgmt_vm = mactable[mgmt_host]
     mgmt_ip = mactable[mgmt_host]["address"]
+
     #Remove and re-add cobbler system
     bash("cobbler system remove --name=%s"%mgmt_host)
     bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
@@ -113,13 +119,7 @@ def configureManagementServer(mgmt_host, mgmtQueue):
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
-    logging.debug("started mgmt VM with uuid: %s. Waiting for services .."%out[1]);
-    mgmtWorker = threading.Thread(name="MgmtRefresh",
-                                  target=attemptSshConnect, args =
-                                  ([],mgmtQueue,))
-    mgmtWorker.setDaemon(True)
-    mgmtWorker.start()
-    mgmtQueue.put(mgmt_host)
+    logging.info("started mgmt server with uuid: %s. Waiting for services .."%out[1]);
 
 def _openIntegrationPort(csconfig):
     dbhost = csconfig.dbSvr.dbSvr
@@ -127,12 +127,16 @@ def _openIntegrationPort(csconfig):
     dbpasswd = csconfig.dbSvr.passwd
     logging.debug("opening the integration port on %s for %s with passwd %s"%(dbhost, dbuser, dbpasswd))
     conn = dbConnection.dbConnection(dbhost, 3306, dbuser, dbpasswd, "cloud")
-    uquery = "update configuration set value=%s where name='integration.api.port'"%csconfig.mgtSvr[0].port
-    conn.execute(uquery)
-    squery = "select name,value from configuration where name='integration.api.port'"
-    logging.info("integration port open: "%conn.execute(squery))
+    uquery = ("update configuration set value=%s where name=%s", )
+    conn.execute(uquery, (csconfig.mgtSvr[0].port, 'integration.api.port', ))
+    squery = "select name,value from configuration where name=%s"
+    logging.info("integration port open: "%conn.execute(squery, ('integration.api.port',)))
        
 def mountAndClean(host, path):
+    """
+    Will mount and clear the files on NFS host in the path given. Obviously the
+    NFS server should be mountable where this script runs
+    """
     mnt_path = "/tmp/" + ''.join([random.choice(string.ascii_uppercase) for x in xrange(0, 10)])
     mkdirs(mnt_path)
     logging.info("cleaning up %s:%s" % (host, path))
@@ -141,19 +145,25 @@ def mountAndClean(host, path):
     umnt = bash("umount %s" % mnt_path)
    
 def cleanPrimaryStorage(cscfg):
+    """
+    Clean all the NFS primary stores and prepare them for the next run
+    """
     for zone in cscfg.zones:
         for pod in zone.pods:
             for cluster in pod.clusters:
                 for primaryStorage in cluster.primaryStorages:
                     if urlparse.urlsplit(primaryStorage.url).scheme == "nfs":
                         mountAndClean(urlparse.urlsplit(primaryStorage.url).hostname, urlparse.urlsplit(primaryStorage.url).path)
+    logging.info("Cleaned up primary stores")
 
 def seedSecondaryStorage(cscfg, hypervisor):
     """
-    erase secondary store and seed system VM template via puppet
+    erase secondary store and seed system VM template via puppet. The
+    secseeder.sh script is executed on mgmt server bootup which will mount and
+    place the system VM templates on the NFS
     """
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
-    logging.info("Found mgmtserver at %s"%mgmt_server)
+    logging.info("Secondary storage seeded via puppet with systemvm templates")
     bash("rm -f /etc/puppet/modules/cloudstack/files/secseeder.sh")
     for zone in cscfg.zones:
         for sstor in zone.secondaryStorages:
@@ -212,20 +222,44 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                         sys.exit(2)
 
     delay(5) #to begin pxe boot process or wait returns immediately
-    _waitForHostReady(hostlist)
     return hostlist
 
-def refreshStorage(cscfg, hypervisor="xen"):
-    cleanPrimaryStorage(cscfg)
-    logging.info("Cleaned up primary stores")
+def _isPortListening(host, port, timeout=120):
+    """
+    Scans 'host' for a listening service on 'port'
+    """
+    tn = None
+    while timeout > 0:
+        try:
+            tn = telnetlib.Telnet(host, port, timeout=timeout)
+            break
+        except Exception:
+            delay(1)
+            timeout = timeout - 1
+    if tn is None:
+        logging.error("No service listening on port %s:%d"%(host, port))
+        return False 
+    else:
+        serviceOut = tn.read_very_eager()
+        if serviceOut.find("mysql") >= 0:
+            logging.info("MySQL is up on %s:%d"%(host, port))
+        elif serviceOut.find("SSH") >= 0:
+            logging.info("SSH is up on %s:%d"%(host, port))
+        else:
+            logging.info("Unrecognizable service up on %s:%d"%(host, port))
+        return True
 
-def attemptSshConnect(ready, hostQueue, port=22):
+def _isPortOpen(hostQueue, port=22):
+    """
+    Checks if there is an open socket on specified port. Default is SSH
+    """
+    ready = []
     host = hostQueue.get()
-    logging.debug("Attempting port=%s connect to host %s"%(port, host))
     while True:
         channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         channel.settimeout(20)
         try:
+            logging.debug("Attempting port=%s connect to host %s"%(port, host))
             err = channel.connect_ex((host, port))
         except socket.error, e:
             logging.debug("encountered %s retrying in 5s"%e)
@@ -233,7 +267,7 @@ def attemptSshConnect(ready, hostQueue, port=22):
         finally:
             if err == 0:
                 ready.append(host)
-                logging.debug("host: %s is ready"%host)
+                logging.info("host: %s is ready"%host)
                 break
             else:
                 logging.debug("[%s] host %s is not ready. Retrying"%(err, host))
@@ -241,14 +275,13 @@ def attemptSshConnect(ready, hostQueue, port=22):
                 channel.close()
     hostQueue.task_done()
 
-def _waitForHostReady(hostlist):
+def waitForHostReady(hostlist):
     logging.info("Waiting for hosts to refresh")
-    ready = []
     hostQueue = Queue.Queue()
 
     for host in hostlist:
-        t = threading.Thread(name='HostWait-%s'%hostlist.index(host), target=attemptSshConnect,
-                             args=(ready, hostQueue, ))
+        t = threading.Thread(name='HostWait-%s'%hostlist.index(host), target=_isPortOpen,
+                             args=(hostQueue, ))
         t.setDaemon(True)
         t.start()
 
@@ -283,29 +316,43 @@ if __name__ == '__main__':
     mgmt_host = "cloudstack-"+options.distro
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
                                                      options.hypervisor))
-    mgmtQueue = Queue.Queue()
 
     cscfg = configGenerator.get_setup_config(auto_config)
-    seedSecondaryStorage(cscfg, options.hypervisor)
-    logging.info("Secondary storage seeded via puppet with systemvm templates")
 
     logging.info("Configuring management server")
-    configureManagementServer(mgmt_host, mgmtQueue)
-
-    hostlist = []
+    mgmtHost = configureManagementServer(mgmt_host)
+    hosts = []
     if not options.skip_host:
-        hostlist = refreshHosts(cscfg, options.hypervisor, options.profile)
+        logging.info("Reimaging hosts with %s profile for the %s \
+                     hypervisor"%(options.profile, options.hypervisor))
+        hosts = refreshHosts(cscfg, options.hypervisor, options.profile)
+    else:
+        logging.info("Skipping clean up of the HV hosts")
 
-    mgmtQueue.join()
+    seedSecondaryStorage(cscfg, options.hypervisor)
+    cleanPrimaryStorage(cscfg)
+
+    waitForHostReady(hosts.append(mgmtHost))
     delay(5)
-    #Re-check because ssh connect works soon as post-installation
-    #occurs. But server is rebooted after post-installation. Assuming the server
-    #is up is wrong in these cases. To avoid this we will check again before
-    #continuing to add the hosts to cloudstack
-    hostlist.append(mgmt_host)
-    if len(hostlist) > 0:
-        _waitForHostReady(hostlist)
+    # Re-check because ssh connect works soon as post-installation occurs. But 
+    # server is rebooted after post-installation. Assuming the server is up is
+    # wrong in these cases. To avoid this we will check again before continuing
+    # to add the hosts to cloudstack
+    waitForHostReady(hosts)
 
-    _openIntegrationPort(cscfg)
-    refreshStorage(cscfg, options.hypervisor)
+    if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
+        _openIntegrationPort(cscfg)
+        mgmt_ip = mactable[mgmt_host]["address"]
+        mgmt_pass = mactable[mgmt_host]["password"]
+        # Open up 8096 for Marvin initial signup and register
+        ssh = remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass) 
+        ssh.execute("service cloud-management restart")
+    else:
+        raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
+
+    if _isPortListening(host=mgmt_host, port=8096) and _isPortListening(host=mgmt_host, port=8080):
+        logging.info("All reqd services are up on the management server")
+    else:
+        raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
+
     logging.info("All systems go!")
