@@ -120,6 +120,7 @@ def configureManagementServer(mgmt_host):
                                                   mgmt_vm["ethernet"]))
 
     logging.info("started mgmt server with uuid: %s. Waiting for services .."%out[1]);
+    return mgmt_host
 
 def _openIntegrationPort(csconfig):
     dbhost = csconfig.dbSvr.dbSvr
@@ -276,7 +277,7 @@ def _isPortOpen(hostQueue, port=22):
     hostQueue.task_done()
 
 def waitForHostReady(hostlist):
-    logging.info("Waiting for hosts to refresh")
+    logging.info("Waiting for hosts %s to refresh"%hostlist)
     hostQueue = Queue.Queue()
 
     for host in hostlist:
