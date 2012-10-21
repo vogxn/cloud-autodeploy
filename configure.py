@@ -129,9 +129,9 @@ def _openIntegrationPort(csconfig):
     dbpasswd = csconfig.dbSvr.passwd
     logging.debug("opening the integration port on %s for %s with passwd %s"%(dbhost, dbuser, dbpasswd))
     conn = dbConnection.dbConnection(dbhost, 3306, dbuser, dbpasswd, "cloud")
-    uquery = ("update configuration set value=%s where name=%s", )
-    conn.execute(uquery, (csconfig.mgtSvr[0].port, 'integration.api.port', ))
-    squery = "select name,value from configuration where name=%s"
+    uquery = "update configuration set value=%s where name=%s" 
+    conn.execute(uquery, (csconfig.mgtSvr[0].port, 'integration.api.port'))
+    squery = "select name, value from configuration where name=%s"
     logging.info("integration port open: "%conn.execute(squery, ('integration.api.port',)))
        
 def mountAndClean(host, path):
