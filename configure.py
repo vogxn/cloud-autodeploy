@@ -333,7 +333,8 @@ if __name__ == '__main__':
     seedSecondaryStorage(cscfg, options.hypervisor)
     cleanPrimaryStorage(cscfg)
 
-    waitForHostReady(hosts.append(mgmtHost))
+    hosts.append(mgmtHost)
+    waitForHostReady(hosts)
     delay(5)
     # Re-check because ssh connect works soon as post-installation occurs. But 
     # server is rebooted after post-installation. Assuming the server is up is
