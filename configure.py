@@ -9,6 +9,7 @@ from syslookup import mactable
 from time import sleep as delay
 from netaddr import IPNetwork
 from netaddr import IPAddress
+import telnetlib
 import bashUtils
 import logging
 import threading
@@ -241,13 +242,7 @@ def _isPortListening(host, port, timeout=120):
         logging.error("No service listening on port %s:%d"%(host, port))
         return False 
     else:
-        serviceOut = tn.read_very_eager()
-        if serviceOut.find("mysql") >= 0:
-            logging.info("MySQL is up on %s:%d"%(host, port))
-        elif serviceOut.find("SSH") >= 0:
-            logging.info("SSH is up on %s:%d"%(host, port))
-        else:
-            logging.info("Unrecognizable service up on %s:%d"%(host, port))
+        logging.info("Unrecognizable service up on %s:%d"%(host, port))
         return True
 
 def _isPortOpen(hostQueue, port=22):
