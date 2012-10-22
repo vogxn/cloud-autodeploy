@@ -336,6 +336,7 @@ if __name__ == '__main__':
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
+    delay(5)
 
     if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
         _openIntegrationPort(cscfg)
