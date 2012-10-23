@@ -351,7 +351,7 @@ if __name__ == '__main__':
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
-    if _isPortListening(host=mgmt_host, port=8096) and _isPortListening(host=mgmt_host, port=8080):
+    if _isPortListening(host=mgmt_host, port=8096, timeout=-1) and _isPortListening(host=mgmt_host, port=8080, timeout=-1):
         logging.info("All reqd services are up on the management server")
     else:
         raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
