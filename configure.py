@@ -47,7 +47,7 @@ CBLR_HOME={
     },
 }
 
-def initLogging(logFile=None, lvl=logging.INFO):
+def initLogging(logFile=None, lvl=logging.DEBUG):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
