@@ -236,11 +236,11 @@ def _isPortListening(host, port, timeout=120):
     while timeout != 0:
         try:
             tn = telnetlib.Telnet(host, port, timeout=timeout)
-            break
+            timeout = 0
         except Exception:
             logging.debug("Failed to telnet connect to %s:%s"%(host, port))
-            delay(1)
-            timeout = timeout - 1
+            delay(5)
+            timeout = timeout - 5
     if tn is None:
         logging.error("No service listening on port %s:%d"%(host, port))
         return False 
@@ -352,7 +352,7 @@ if __name__ == '__main__':
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
-    if _isPortListening(host=mgmt_host, port=8096, timeout=-1) and _isPortListening(host=mgmt_host, port=8080, timeout=-1):
+    if _isPortListening(host=mgmt_host, port=8096, timeout=120) and _isPortListening(host=mgmt_host, port=8080, timeout=120):
         logging.info("All reqd services are up on the management server")
     else:
         raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
