@@ -9,8 +9,6 @@ from syslookup import mactable
 from time import sleep as delay
 from netaddr import IPNetwork
 from netaddr import IPAddress
-import contextlib
-from contextlib import closing
 import telnetlib
 import bashUtils
 import logging
@@ -344,10 +342,9 @@ if __name__ == '__main__':
         _openIntegrationPort(cscfg)
         mgmt_ip = mactable[mgmt_host]["address"]
         mgmt_pass = mactable[mgmt_host]["password"]
-        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
-            ssh.execute("mysql -ucloud -Dcloud -pcloud -e'update configuration set value=%s where name=%s'" %(cscfg.mgtSvr[0].port, 'integration.api.port') )
-            # Open up 8096 for Marvin initial signup and register
-            ssh.execute("service cloud-management restart")
+        ssh.execute("mysql -ucloud -Dcloud -pcloud -e'update configuration set value=%s where name=%s'" %(cscfg.mgtSvr[0].port, 'integration.api.port') )
+        # Open up 8096 for Marvin initial signup and register
+        ssh.execute("service cloud-management restart")
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
