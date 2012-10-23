@@ -238,6 +238,7 @@ def _isPortListening(host, port, timeout=120):
             tn = telnetlib.Telnet(host, port, timeout=timeout)
             break
         except Exception:
+            logging.debug("Failed to telnet connect to %s:%s"%(host, port))
             delay(1)
             timeout = timeout - 1
     if tn is None:
