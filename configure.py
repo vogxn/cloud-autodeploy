@@ -233,7 +233,7 @@ def _isPortListening(host, port, timeout=120):
     Scans 'host' for a listening service on 'port'
     """
     tn = None
-    while timeout > 0:
+    while timeout != 0:
         try:
             tn = telnetlib.Telnet(host, port, timeout=timeout)
             break
