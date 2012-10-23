@@ -344,7 +344,7 @@ if __name__ == '__main__':
         mgmt_pass = mactable[mgmt_host]["password"]
         ssh = remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass) 
 
-        ssh.execute("mysql -ucloud -Dcloud -pcloud -e'update configuration set value=%s where name=%s'" %(csconfig.mgtSvr[0].port, 'integration.api.port') )
+        ssh.execute("mysql -ucloud -Dcloud -pcloud -e'update configuration set value=%s where name=%s'" %(cscfg.mgtSvr[0].port, 'integration.api.port') )
 
         # Open up 8096 for Marvin initial signup and register
         ssh.execute("service cloud-management restart")
