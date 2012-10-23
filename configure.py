@@ -9,6 +9,7 @@ from syslookup import mactable
 from time import sleep as delay
 from netaddr import IPNetwork
 from netaddr import IPAddress
+import contextlib
 from contextlib import closing
 import telnetlib
 import bashUtils
