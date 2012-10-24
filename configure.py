@@ -47,7 +47,7 @@ CBLR_HOME={
     },
 }
 
-def initLogging(logFile=None, lvl=logging.DEBUG):
+def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
@@ -288,13 +288,14 @@ def waitForHostReady(hostlist):
     hostQueue.join()
     logging.info("All hosts %s are up"%hostlist)
     
-def init():
-    initLogging()
+def init(lvl=logging.INFO):
+    initLogging(lvl)
         
 if __name__ == '__main__':
-    init()
 
     parser = ArgumentParser()
+    parser.add_argument("-l", "--logging", action="store", default="INFO",
+                      dest="loglvl", help="logging level (INFO|DEBUG|)")
     parser.add_argument("-v", "--hypervisor", action="store", default="xen",
                       dest="hypervisor", help="hypervisor type")
     parser.add_argument("-d", "--distro", action="store", default="rhel",
@@ -304,6 +305,13 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--profile", action="store", default="xen602",
                       dest="profile", help="cobbler profile for hypervisor")
     options = parser.parse_args()
+
+    if options.loglvl == "DEBUG":
+        init(logging.DEBUG)
+    elif options.loglvl == "INFO":
+        init(logging.INFO)
+    else:
+        raise Exception("Invalid log level %s"%options.loglvl)
 
     if options.hypervisor == "xen":
         auto_config = "xen.cfg"
