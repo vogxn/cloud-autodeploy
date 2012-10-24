@@ -289,7 +289,7 @@ def waitForHostReady(hostlist):
     logging.info("All hosts %s are up"%hostlist)
     
 def init(lvl=logging.INFO):
-    initLogging(lvl)
+    initLogging(logFile=None, lvl=lvl)
         
 if __name__ == '__main__':
 
