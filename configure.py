@@ -33,17 +33,20 @@ CBLR_HOME={
     "eth0" :
     {
         "network" : "10.223.75.0/25",
-        "gateway" : "10.223.75.10"
+        "gateway" : "10.223.75.1",
+        "cblrgw" : "10.223.75.10"
     },
     "eth1":
     {
         "network" : "10.223.78.0/25",
-        "gateway" : "10.223.78.2"
+        "gateway" : "10.223.78.1",
+        "cblrgw" : "10.223.78.2"
     },
     "eth2":
     {
         "network" : "10.223.78.128/25",
-        "gateway" : "10.223.78.130"
+        "gateway" : "10.223.78.128",
+        "cblrgw" : "10.223.78.130"
     },
 }
 
@@ -75,7 +78,7 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
-def cobblerHomeResolve(ip_address):
+def cobblerHomeResolve(ip_address, param="gateway"):
     cblr_home_1 = IPNetwork(CBLR_HOME["eth0"]["network"])
     cblr_home_2 = IPNetwork(CBLR_HOME["eth1"]["network"])
     cblr_home_3 = IPNetwork(CBLR_HOME["eth2"]["network"])
@@ -83,13 +86,13 @@ def cobblerHomeResolve(ip_address):
     ipAddr = IPAddress(ip_address)
     
     if ipAddr in cblr_home_1:
-        return CBLR_HOME["eth0"]["gateway"]
+        return CBLR_HOME["eth0"][param]
     elif ipAddr in cblr_home_2:
-        return CBLR_HOME["eth1"]["gateway"]
+        return CBLR_HOME["eth1"][param]
     elif ipAddr in cblr_home_3:
-        return CBLR_HOME["eth2"]["gateway"]
+        return CBLR_HOME["eth2"][param]
     else:
-        return CBLR_HOME["eth0"]["gateway"]
+        return CBLR_HOME["eth0"][param]
 
 def configureManagementServer(mgmt_host):
     """
@@ -104,8 +107,10 @@ def configureManagementServer(mgmt_host):
     bash("cobbler system remove --name=%s"%mgmt_host)
     bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
          --netboot-enabled=yes --enable-gpxe=no \
-         --profile=%s --server=%s"%(mgmt_host, mgmt_host, mgmt_vm["ethernet"],
-                                    mgmt_host, cobblerHomeResolve(mgmt_ip)));
+         --profile=%s --server=%s --gateway=%s"%(mgmt_host, mgmt_host,
+                                                 mgmt_vm["ethernet"], mgmt_host,
+                                                 cobblerHomeResolve(mgmt_ip, param='cblrgw'),
+                                                 cobblerHomeResolve(mgmt_ip)));
     bash("cobbler sync")
 
     #Revoke all certs from puppetmaster
@@ -203,9 +208,10 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                              --name=%s"%(hostname))
                         bash("cobbler system add --name=%s --hostname=%s \
                              --mac-address=%s --netboot-enabled=yes \
-                             --enable-gpxe=no --profile=%s --server=%s"%(hostname, hostname,
-                                                             hostmac, profile,
-                                                                         cobblerHomeResolve(hostip)))
+                             --enable-gpxe=no --profile=%s --server=%s \
+                             --gateway=%s"%(hostname, hostname, hostmac,
+                                            profile, cobblerHomeResolve(hostip, param='cblrgw'),
+                                            cobblerHomeResolve(hostip)))
 
                         bash("cobbler sync")
                     except KeyError:
