@@ -347,13 +347,13 @@ if __name__ == '__main__':
 
     hosts.append(mgmtHost)
     waitForHostReady(hosts)
-    delay(5)
+    delay(30)
     # Re-check because ssh connect works soon as post-installation occurs. But 
     # server is rebooted after post-installation. Assuming the server is up is
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
-    delay(5)
+    delay(120)
 
     if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
         _openIntegrationPort(cscfg)
