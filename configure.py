@@ -294,19 +294,19 @@ def waitForHostReady(hostlist):
     hostQueue.join()
     logging.info("All hosts %s are up"%hostlist)
 
-def isManagementServiceStable(ssh=None, timeout=60, interval=5):
+def isManagementServiceStable(ssh=None, timeout=300, interval=5):
     logging.debug("Waiting for cloud-management service to become stable")
     if ssh is None:
         return False
     toggle = True
     while timeout != 0:
         cs_status = ''.join(ssh.execute("service cloud-management status"))
-        logging.debug("[-%ds] Cloud Management status: %s"%(timeout*interval, cs_status))
+        logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
         if cs_status.find('running') > 0:
             pass
         else:
             ssh.execute("service cloud-management restart")
-        timeout = timeout*interval - interval
+        timeout = timeout - interval
         delay(interval)
     
 def init(lvl=logging.INFO):
