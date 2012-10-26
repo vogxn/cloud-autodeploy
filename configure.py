@@ -50,7 +50,7 @@ CBLR_HOME={
     },
 }
 
-def initLogging(logFile=None, lvl=logging.INFO):
+def initLogging(logFile=None, lvl=logging.DEBUG):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
@@ -293,6 +293,21 @@ def waitForHostReady(hostlist):
     [hostQueue.put(host) for host in hostlist]
     hostQueue.join()
     logging.info("All hosts %s are up"%hostlist)
+
+def isManagementServiceStable(ssh=None, timeout=60, interval=5):
+    logging.debug("Waiting for cloud-management service to become stable")
+    if ssh is None:
+        return False
+    toggle = True
+    while timeout != 0:
+        cs_status = ''.join(ssh.execute("service cloud-management status"))
+        logging.debug("[-%ds] Cloud Management status: %s"%(timeout*interval, cs_status))
+        if cs_status.find('running') > 0:
+            pass
+        else:
+            ssh.execute("service cloud-management restart")
+        timeout = timeout - interval
+        delay(interval)
     
 def init(lvl=logging.INFO):
     initLogging(logFile=None, lvl=lvl)
@@ -353,18 +368,17 @@ if __name__ == '__main__':
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
-    delay(120)
-
     if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
+        # At this point management server is coming up - preparing it's singleton
+        # DAOs and managers. The default values of the global.settings are also
+        # prepared here. So let's wait long enough for that to finish
+        delay(120)
         _openIntegrationPort(cscfg)
         mgmt_ip = mactable[mgmt_host]["address"]
         mgmt_pass = mactable[mgmt_host]["password"]
-
-        ssh = remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)
-        #with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
-        ssh.execute("mysql -ucloud -Dcloud -pcloud -e\"update configuration set value=%s where name=%s\"" %(cscfg.mgtSvr[0].port, 'integration.api.port'))
-        # Open up 8096 for Marvin initial signup and register
-        ssh.execute("service cloud-management restart")
+        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+            # Open up 8096 for Marvin initial signup and register
+            ssh.execute("service cloud-management restart")
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
@@ -372,5 +386,10 @@ if __name__ == '__main__':
         logging.info("All reqd services are up on the management server")
     else:
         raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
+
+    mgmt_ip = mactable[mgmt_host]["address"]
+    mgmt_pass = mactable[mgmt_host]["password"]
+    with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        isManagementServiceStable(ssh)
 
     logging.info("All systems go!")
