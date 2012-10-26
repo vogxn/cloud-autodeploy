@@ -50,7 +50,7 @@ CBLR_HOME={
     },
 }
 
-def initLogging(logFile=None, lvl=logging.DEBUG):
+def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
@@ -295,13 +295,13 @@ def waitForHostReady(hostlist):
     logging.info("All hosts %s are up"%hostlist)
 
 def isManagementServiceStable(ssh=None, timeout=300, interval=5):
-    logging.debug("Waiting for cloud-management service to become stable")
+    logging.info("Waiting for cloud-management service to become stable")
     if ssh is None:
         return False
     toggle = True
     while timeout != 0:
         cs_status = ''.join(ssh.execute("service cloud-management status"))
-        logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
+        logging.info("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
         if cs_status.find('running') > 0:
             pass
         else:
