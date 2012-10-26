@@ -306,7 +306,7 @@ def isManagementServiceStable(ssh=None, timeout=60, interval=5):
             pass
         else:
             ssh.execute("service cloud-management restart")
-        timeout = timeout - interval
+        timeout = timeout*interval - interval
         delay(interval)
     
 def init(lvl=logging.INFO):
