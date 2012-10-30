@@ -392,6 +392,6 @@ if __name__ == '__main__':
     mgmt_ip = mactable[mgmt_host]["address"]
     mgmt_pass = mactable[mgmt_host]["password"]
     with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
-        isManagementServiceStable(ssh)
+        isManagementServiceStable(ssh, timeout=60)
 
     logging.info("All systems go!")
