@@ -1,9 +1,11 @@
+hypervisor="kvm"
+
 #Isolate the run into a virtualenv
-/usr/local/bin/virtualenv-2.7 -p /usr/local/bin/python2.7 acs-nightly-tests-$BUILD_NUMBER
+/usr/local/bin/virtualenv-2.7 -p /usr/local/bin/python2.7 nightly-smoke-kvm-$BUILD_NUMBER
 
 #Copy the tests into the virtual env
-rsync -az test acs-nightly-tests-$BUILD_NUMBER/
-cd acs-nightly-tests-$BUILD_NUMBER
+rsync -az test nightly-smoke-kvm-$BUILD_NUMBER/
+cd nightly-smoke-kvm-$BUILD_NUMBER
 
 ## Start
 source bin/activate
@@ -22,6 +24,7 @@ cd ..
 #Install necessary python eggs
 pip -q install $tar
 pip -q install netaddr
+pip -q install unittest-xml-reporting
 #Install marvin-nose plugin
 pip -q install lib/python2.7/site-packages/marvin/
 
@@ -38,7 +41,7 @@ if [[ $DEPLOY == "yes" ]]; then
     nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w /tmp
     #Restart to apply global settings
     python ../cloud-autodeploy/restartMgmt.py --config ../cloud-autodeploy/$hypervisor.cfg
-    cd $WORKSPACE/acs-nightly-tests-$BUILD_NUMBER
+    cd $WORKSPACE/nightly-smoke-kvm-$BUILD_NUMBER
 fi
 
 #Health Check
@@ -46,7 +49,7 @@ nosetests -v --with-marvin --marvin-config=cloud-autodeploy/$hypervisor.cfg --lo
 
 #Setup Test Data
 cd test
-bash setup-test-data.sh -t integration/smoke -m 10.223.75.41 -p password -d 10.223.75.41
+bash setup-test-data.sh -t integration/smoke -m 10.223.75.41 -p password -d 10.223.75.41 -h $hypervisor
 for file in `find integration/smoke/ -name *.py -type f`
 do
     sed -i "s/http:\/\/iso.linuxquestions.org\/download\/504\/1819\/http\/gd4.tuwien.ac.at\/dsl-4.4.10.iso/http:\/\/nfs1.lab.vmops.com\/isos_32bit\/dsl-4.4.10.iso/g" $file
@@ -59,12 +62,13 @@ fi
 if [[ $DEBUG == "yes" ]]; then
     nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunit --collect-only
 else
+    set +e
     nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunit
+    set -e
 fi
 
-cp -f nosetests.xml $WORKSPACE
+
+cp -fv nosetests.xml $WORKSPACE
 #deactivate, cleanup and exit
 deactivate
-cd $WORKSPACE
-rm -rf acs-nightly-tests-$BUILD_NUMBER
-
+rm -rf nightly-smoke-kvm-$BUILD_NUMBER
