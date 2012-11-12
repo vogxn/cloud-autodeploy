@@ -22,7 +22,7 @@ import errno
 
 SRC_ARCH_DIR = "/root/cloud/arch"
 DST_ARCH_DIR = "/root/cloud/arch"
-WORKSPACE = "/hudson/scripts"
+WORKSPACE = "." #Where redeploy.sh is placed. Ideally repo home
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -102,7 +102,7 @@ def configureManagementServer(bld, env_config, auto_config):
             shost = urlparse.urlsplit(sstor.url).hostname
             spath = urlparse.urlsplit(sstor.url).path
 #            ssh.execute_buffered("bash redeploy.sh -s %s -a %s -d %s"%(spath, tarball_path, cscfg.dbSvr.dbSvr))
-            bash("ssh %s@%s bash redeploy.sh -s %s -a %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, tarball_path, cscfg.dbSvr.dbSvr))
+            bash("ssh -ostricthostkeychecking=no -oUserKnownHostsFile=/dev/null %s@%s bash redeploy.sh -s %s -a %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, tarball_path, cscfg.dbSvr.dbSvr))
             
     delay(120)
     _openIntegrationPort(cscfg, env_config)
