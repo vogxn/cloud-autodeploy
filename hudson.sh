@@ -24,7 +24,7 @@ cd ..
 #Install necessary python eggs
 pip -q install $tar
 pip -q install netaddr
-pip -q install unittest-xml-reporting
+pip -q install /opt/xunitmp ## Plugin is not in nose-mainline yet: https://github.com/nose-devs/nose/issues/2 ##
 #Install marvin-nose plugin
 pip -q install lib/python2.7/site-packages/marvin/
 
@@ -60,15 +60,14 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if [[ $DEBUG == "yes" ]]; then
-    nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunit --collect-only
+    nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunitmp --collect-only
 else
     set +e
-    nosetests -v --with-marvin --marvin-config=../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunit
+    nosetests -v --processes=5 --process-timeout=3600 --with-marvin --marvin-config=`pwd`/../cloud-autodeploy/$hypervisor.cfg -w integration/smoke --load --with-xunitmp
     set -e
 fi
 
-
-cp -fv nosetests.xml $WORKSPACE
+cp -fv integration/smoke/nosetests.xml $WORKSPACE
 #deactivate, cleanup and exit
 deactivate
 rm -rf nightly-smoke-kvm-$BUILD_NUMBER
