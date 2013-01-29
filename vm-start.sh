@@ -23,7 +23,7 @@ done
 
 vmuuid=$(xe vm-install template=Other\ install\ media new-name-label=$vmname)
 
-sruuid=$(xe sr-list type=nfs | grep uuid | awk '{print $5}')
+sruuid=$(xe sr-list type=lvm | grep uuid | awk '{print $5}')
 vdiuuid=$(xe vdi-create name-label=$vmname sharable=0 sr-uuid=$sruuid type=user virtual-size=21474836480)
 $(xe vbd-create bootable=true mode=RW type=DISK device=0 unpluggable=true vdi-uuid=$vdiuuid vm-uuid=$vmuuid)
 
