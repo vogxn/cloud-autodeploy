@@ -79,20 +79,11 @@ def fetch(filename, url, path):
     bash("mv /tmp/%s %s" % (filename, path))
 
 def cobblerHomeResolve(ip_address, param="gateway"):
-    cblr_home_1 = IPNetwork(CBLR_HOME["eth0"]["network"])
-    cblr_home_2 = IPNetwork(CBLR_HOME["eth1"]["network"])
-    cblr_home_3 = IPNetwork(CBLR_HOME["eth2"]["network"])
-
     ipAddr = IPAddress(ip_address)
-    
-    if ipAddr in cblr_home_1:
-        return CBLR_HOME["eth0"][param]
-    elif ipAddr in cblr_home_2:
-        return CBLR_HOME["eth1"][param]
-    elif ipAddr in cblr_home_3:
-        return CBLR_HOME["eth2"][param]
-    else:
-        return CBLR_HOME["eth0"][param]
+    for nic, network in CBLR_HOME.items():
+        cblr_home = IPNetwork(CBLR_HOME[nic]["network"])
+        if ipAddr in cblr_home:
+            return CBLR_HOME[nic][param]
 
 def configureManagementServer(mgmt_host):
     """
