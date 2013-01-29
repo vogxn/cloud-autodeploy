@@ -4,51 +4,49 @@ from marvin import configGenerator
 from marvin import remoteSSHClient
 from marvin import dbConnection
 from argparse import ArgumentParser
-from syslookup import ipmitable
-from syslookup import mactable
 from time import sleep as delay
 from netaddr import IPNetwork
 from netaddr import IPAddress
 import contextlib
-from contextlib import closing
 import telnetlib
-import bashUtils
 import logging
 import threading
 import Queue
-import marvin
 import sys
-import os
 import random
 import string
 import urllib2
 import urlparse
 import socket
-import select
-import errno
 
 WORKSPACE="."
 IPMI_PASS="calvin"
-CBLR_HOME={ 
-    "eth0" :
-    {
-        "network" : "10.223.75.0/25",
-        "gateway" : "10.223.75.1",
-        "cblrgw" : "10.223.75.10"
-    },
-    "eth1":
-    {
-        "network" : "10.223.78.0/25",
-        "gateway" : "10.223.78.1",
-        "cblrgw" : "10.223.78.2"
-    },
-    "eth2":
-    {
-        "network" : "10.223.78.128/25",
-        "gateway" : "10.223.78.128",
-        "cblrgw" : "10.223.78.130"
-    },
-}
+
+macinfo = {}
+ipmiinfo = {}
+cobblerinfo = {}
+
+def generate_system_tables(config):
+    dhcp = config.items("dhcp")
+    for entry in dhcp:
+        macinfo[entry[0]] = {}
+        mac, passwd, ip =  entry[1].split(",")
+        macinfo[entry[0]]["ethernet"] = mac
+        macinfo[entry[0]]["password"] = passwd
+        macinfo[entry[0]]["address"] = ip
+
+    ipmi = config.items("ipmi")
+    for entry in ipmi:
+        ipmiinfo[entry[0]] = entry[1]
+
+    cobbler = config.items("cobbler")
+    for entry in cobbler:
+        cobblerinfo[entry[0]] = {}
+        net, gw, cblrgw = entry[1].split(",")
+        cobblerinfo[entry[0]]["network"] = net
+        cobblerinfo[entry[0]]["gateway"] = gw
+        cobblerinfo[entry[0]]["cblrgw"] = cblrgw
+
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
@@ -80,10 +78,10 @@ def fetch(filename, url, path):
 
 def cobblerHomeResolve(ip_address, param="gateway"):
     ipAddr = IPAddress(ip_address)
-    for nic, network in CBLR_HOME.items():
-        cblr_home = IPNetwork(CBLR_HOME[nic]["network"])
+    for nic, network in cobblerinfo.items():
+        cblr_home = IPNetwork(cobblerinfo[nic]["network"])
         if ipAddr in cblr_home:
-            return CBLR_HOME[nic][param]
+            return cobblerinfo[nic][param]
 
 def configureManagementServer(mgmt_host):
     """
@@ -91,8 +89,8 @@ def configureManagementServer(mgmt_host):
     replace this by launching instances via the API on a IaaS cloud using
     desired template
     """
-    mgmt_vm = mactable[mgmt_host]
-    mgmt_ip = mactable[mgmt_host]["address"]
+    mgmt_vm = macinfo[mgmt_host]
+    mgmt_ip = macinfo[mgmt_host]["address"]
 
     #Remove and re-add cobbler system
     bash("cobbler system remove --name=%s"%mgmt_host)
@@ -109,9 +107,9 @@ def configureManagementServer(mgmt_host):
 
     #Start VM on xenserver
     xenssh = \
-    remoteSSHClient.remoteSSHClient(mactable["infraxen"]["address"],
+    remoteSSHClient.remoteSSHClient(macinfo["infraxen"]["address"],
                                     22, "root",
-                                    mactable["infraxen"]["password"])
+                                    macinfo["infraxen"]["password"])
 
     logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
     xenssh.execute("xe vm-uninstall force=true vm=%s"%mgmt_host)
@@ -193,8 +191,8 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 
                     #setup cobbler profiles and systems
                     try:
-                        hostmac = mactable[hostname]['ethernet']
-                        hostip = mactable[hostname]['address']
+                        hostmac = macinfo[hostname]['ethernet']
+                        hostip = macinfo[hostname]['address']
                         bash("cobbler system remove \
                              --name=%s"%(hostname))
                         bash("cobbler system add --name=%s --hostname=%s \
@@ -211,7 +209,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
 
                     #set ipmi to boot from PXE
                     try:
-                        ipmi_hostname = ipmitable[hostname]
+                        ipmi_hostname = ipmiinfo[hostname]
                         logging.debug("found IPMI nic on %s for host %s"%(ipmi_hostname, hostname))
                         bash("ipmitool -Uroot -P%s -H%s chassis bootdev \
                              pxe"%(IPMI_PASS, ipmi_hostname))
@@ -299,6 +297,8 @@ def isManagementServiceStable(ssh=None, timeout=300, interval=5):
             ssh.execute("service cloud-management restart")
         timeout = timeout - interval
         delay(interval)
+
+
     
 def init(lvl=logging.INFO):
     initLogging(logFile=None, lvl=lvl)
@@ -316,6 +316,8 @@ if __name__ == '__main__':
                       dest="skip_host", help="Skip Host Refresh")
     parser.add_argument("-p", "--profile", action="store", default="xen602",
                       dest="profile", help="cobbler profile for hypervisor")
+    parser.add_argument("-y","--system", help="system properties file",
+                      dest="system", action="store", default="system.properties")
     options = parser.parse_args()
 
     if options.loglvl == "DEBUG":
@@ -331,6 +333,19 @@ if __name__ == '__main__':
         auto_config = "kvm.cfg"
     else:
         auto_config = "xen.cfg"
+
+    if options.system is not None:
+        system = ConfigParser()
+        try:
+            with open(options.system, 'r') as cfg:
+                system.readfp(cfg)
+        except IOError, e:
+            logging.error("Specify a valid path for the system properties")
+            raise e
+    else:
+        raise IOError("no system properties given. aborting")
+
+    generate_system_tables(system)
 
     mgmt_host = "cloudstack-"+options.distro
     logging.info("configuring %s for hypervisor %s"%(mgmt_host,
@@ -365,8 +380,8 @@ if __name__ == '__main__':
         # prepared here. So let's wait long enough for that to finish
         delay(120)
         _openIntegrationPort(cscfg)
-        mgmt_ip = mactable[mgmt_host]["address"]
-        mgmt_pass = mactable[mgmt_host]["password"]
+        mgmt_ip = macinfo[mgmt_host]["address"]
+        mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Open up 8096 for Marvin initial signup and register
             ssh.execute("mysql -ucloud -pcloud -Dcloud -e'update configuration\
@@ -380,8 +395,8 @@ if __name__ == '__main__':
     else:
         raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
 
-    mgmt_ip = mactable[mgmt_host]["address"]
-    mgmt_pass = mactable[mgmt_host]["password"]
+    mgmt_ip = macinfo[mgmt_host]["address"]
+    mgmt_pass = macinfo[mgmt_host]["password"]
     with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
         isManagementServiceStable(ssh, timeout=60)
 
