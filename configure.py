@@ -258,6 +258,7 @@ def _isPortOpen(hostQueue, port=22):
             err = channel.connect_ex((host, port))
         except socket.error, e:
             logging.debug("encountered %s retrying in 5s"%e)
+            err = e.errno
             delay(5)
         finally:
             if err == 0:
