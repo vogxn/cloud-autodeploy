@@ -21,11 +21,11 @@ import socket
 
 WORKSPACE="."
 IPMI_PASS="calvin"
+DOMAIN = 'fmt.vmops.com'
 
 macinfo = {}
 ipmiinfo = {}
 cobblerinfo = {}
-domain = 'fmt.vmops.com'
 
 def generate_system_tables(config):
     dhcp = config.items("dhcp")
@@ -104,7 +104,7 @@ def configureManagementServer(mgmt_host):
     bash("cobbler sync")
 
     #Revoke all certs from puppetmaster
-    bash("puppet cert clean %s.%s"%(mgmt_host, domain))
+    bash("puppet cert clean %s.%s"%(mgmt_host, DOMAIN))
 
     #Start VM on xenserver
     xenssh = \
@@ -188,7 +188,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     logging.debug("attempting to refresh host %s"%hostname)
 
                     #revoke certs
-                    bash("puppet cert clean %s.%s"%(hostname, domain))
+                    bash("puppet cert clean %s.%s"%(hostname, DOMAIN))
 
                     #setup cobbler profiles and systems
                     try:
