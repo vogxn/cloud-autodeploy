@@ -48,7 +48,6 @@ def generate_system_tables(config):
         cobblerinfo[entry[0]]["gateway"] = gw
         cobblerinfo[entry[0]]["cblrgw"] = cblrgw
 
-
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
@@ -80,8 +79,8 @@ def fetch(filename, url, path):
 def cobblerHomeResolve(ip_address, param="gateway"):
     ipAddr = IPAddress(ip_address)
     for nic, network in cobblerinfo.items():
-        cblr_home = IPNetwork(cobblerinfo[nic]["network"])
-        if ipAddr in cblr_home:
+        subnet = IPNetwork(cobblerinfo[nic]["network"])
+        if ipAddr in subnet:
             return cobblerinfo[nic][param]
 
 def configureManagementServer(mgmt_host):
