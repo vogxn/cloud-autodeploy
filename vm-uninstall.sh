@@ -19,4 +19,5 @@ do
     esac
 done
 
-$(xe vm-uninstall force=true vm=$vmname)
+xe vdi-destroy name-label=$vmname
+xe vm-uninstall force=true vm=$vmname
