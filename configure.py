@@ -111,8 +111,9 @@ def configureManagementServer(mgmt_host):
                                     22, "root",
                                     macinfo["infraxen"]["password"])
 
-    logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
+    logging.debug("bash vm-uninstall.sh -n %s"%(mgmt_host))
     xenssh.execute("xe vm-uninstall force=true vm=%s"%mgmt_host)
+    logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
