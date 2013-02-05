@@ -198,7 +198,7 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                         bash("cobbler system remove \
                              --name=%s"%(hostname))
                         bash("cobbler system add --name=%s --hostname=%s \
-                             --mac-address=%s --netboot-enabled=yes \
+                             --mac-address=%s --netboot-enabled=no \
                              --enable-gpxe=no --profile=%s --server=%s \
                              --gateway=%s"%(hostname, hostname, hostmac,
                                             profile, cobblerHomeResolve(hostip, param='cblrgw'),
