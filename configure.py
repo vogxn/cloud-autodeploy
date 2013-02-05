@@ -348,13 +348,13 @@ if __name__ == '__main__':
 
     cscfg = configGenerator.get_setup_config(auto_config)
 
-    hosts = []
-
     logging.info("Configuring management server %s"%mgmt_host)
     logging.info("Reimaging hosts with %s profile for the %s \
                  hypervisor"%(options.profile, options.hypervisor))
 
-    hosts = [configureManagementServer(mgmt_host)].extend(refreshHosts(cscfg, options.hypervisor, options.profile))
+    hosts = []
+    hosts.extend(configureManagementServer(mgmt_host))
+    hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
     seedSecondaryStorage(cscfg, options.hypervisor)
     cleanPrimaryStorage(cscfg)
 
