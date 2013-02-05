@@ -352,8 +352,7 @@ if __name__ == '__main__':
     logging.info("Reimaging hosts with %s profile for the %s \
                  hypervisor"%(options.profile, options.hypervisor))
 
-    hosts = []
-    hosts.extend(configureManagementServer(mgmt_host))
+    hosts = [configureManagementServer(mgmt_host)]
     hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
     seedSecondaryStorage(cscfg, options.hypervisor)
     cleanPrimaryStorage(cscfg)
