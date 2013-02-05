@@ -293,7 +293,7 @@ def isManagementServiceStable(ssh=None, timeout=300, interval=5):
     toggle = True
     while timeout != 0:
         cs_status = ''.join(ssh.execute("service cloud-management status"))
-        logging.info("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
+        logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
         if cs_status.find('running') > 0:
             pass
         else:
@@ -315,8 +315,6 @@ if __name__ == '__main__':
                       dest="hypervisor", help="hypervisor type")
     parser.add_argument("-d", "--distro", action="store", default="rhel",
                       dest="distro", help="management server distro")
-    parser.add_argument("-s", "--skip-host", action="store_true", default=False,
-                      dest="skip_host", help="Skip Host Refresh")
     parser.add_argument("-p", "--profile", action="store", default="xen602",
                       dest="profile", help="cobbler profile for hypervisor")
     parser.add_argument("-y","--system", help="system properties file",
@@ -356,20 +354,16 @@ if __name__ == '__main__':
 
     cscfg = configGenerator.get_setup_config(auto_config)
 
-    logging.info("Configuring management server")
-    mgmtHost = configureManagementServer(mgmt_host)
     hosts = []
-    if not options.skip_host:
-        logging.info("Reimaging hosts with %s profile for the %s \
-                     hypervisor"%(options.profile, options.hypervisor))
-        hosts = refreshHosts(cscfg, options.hypervisor, options.profile)
-    else:
-        logging.info("Skipping clean up of the HV hosts")
 
+    logging.info("Configuring management server %s"%mgmt_host)
+    logging.info("Reimaging hosts with %s profile for the %s \
+                 hypervisor"%(options.profile, options.hypervisor))
+
+    hosts = [configureManagementServer(mgmt_host), refreshHosts(cscfg, options.hypervisor, options.profile)]
     seedSecondaryStorage(cscfg, options.hypervisor)
     cleanPrimaryStorage(cscfg)
 
-    hosts.append(mgmtHost)
     waitForHostReady(hosts)
     delay(30)
     # Re-check because ssh connect works soon as post-installation occurs. But 
