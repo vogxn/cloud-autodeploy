@@ -179,18 +179,14 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
     Creates a new system for current run.
     Ipmi boots from PXE - default to Xenserver profile
     """
-    hostlist = []
     for zone in cscfg.zones:
         for pod in zone.pods:
             for cluster in pod.clusters:
                 for host in cluster.hosts:
                     hostname = urlparse.urlsplit(host.url).hostname
-                    hostlist.append(hostname)
                     logging.debug("attempting to refresh host %s"%hostname)
-
                     #revoke certs
                     bash("puppet cert clean %s.%s"%(hostname, DOMAIN))
-
                     #setup cobbler profiles and systems
                     try:
                         hostmac = macinfo[hostname]['ethernet']
@@ -208,7 +204,6 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     except KeyError:
                         logging.error("No mac found against host %s. Exiting"%hostname)
                         sys.exit(2)
-
                     #set ipmi to boot from PXE
                     try:
                         ipmi_hostname = ipmiinfo[hostname]
@@ -221,9 +216,8 @@ def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
                     except KeyError:
                         logging.error("No ipmi host found against %s. Exiting"%hostname)
                         sys.exit(2)
-
+                    yield hostname
     delay(5) #to begin pxe boot process or wait returns immediately
-    return hostlist
 
 def _isPortListening(host, port, timeout=120):
     """
@@ -360,7 +354,7 @@ if __name__ == '__main__':
     logging.info("Reimaging hosts with %s profile for the %s \
                  hypervisor"%(options.profile, options.hypervisor))
 
-    hosts = [configureManagementServer(mgmt_host), refreshHosts(cscfg, options.hypervisor, options.profile)]
+    hosts = [configureManagementServer(mgmt_host)].extend(refreshHosts(cscfg, options.hypervisor, options.profile))
     seedSecondaryStorage(cscfg, options.hypervisor)
     cleanPrimaryStorage(cscfg)
 
