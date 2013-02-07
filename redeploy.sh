@@ -26,6 +26,7 @@ echo "Redeploy Version: $VERSION"
 spath='nfs2.lab.vmops.com:/export/home/bvt/secondary'
 hypervisor='xenserver'
 sysvmurl='http://download.cloud.com/templates/acton/acton-systemvm-02062012.vhd.bz2'
+systemvm_seeder='/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 
 while getopts 'u:s:h:' OPTION
 do
@@ -74,7 +75,7 @@ cat /dev/null > /var/log/cloud/management/api-server.log
 cat /dev/null > /var/log/cloud/management/catalina.out
 
 #replace disk size reqd to 1GB max
-sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt
+sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' $systemvm_seeder
 
 if [[ "$uflag" != "1" && "$hypervisor" != "xenserver" ]]
 then
@@ -90,15 +91,15 @@ then
 
 	if [[ "$hflag" == "1" && "$hypervisor" == "xenserver" ]]
 	then
-		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u $sysvmurl -h xenserver
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h xenserver
 	elif [[ "$hflag" == "1" && "$hypervisor" == "kvm" ]]
 	then
-		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u $sysvmurl -h kvm
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h kvm
 	elif [[ "$hflag" == "1" && "$hypervisor" == "vmware" ]]
 	then
-		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u $sysvmurl -h vmware
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h vmware
 	else
-		bash -x /usr/lib64/cloud/common/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u $sysvmurl -h xenserver
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h xenserver
 	fi
 	umount /tmp/secondary
 else
