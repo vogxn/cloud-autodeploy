@@ -368,7 +368,6 @@ if __name__ == '__main__':
     mgmt_host = "cloudstack-"+options.distro
     logging.info("Configuring management server %s"%mgmt_host)
     hosts = [configureManagementServer(mgmt_host)]
-    logging.warning("no system properties given")
 
     if options.hypervisor is not None:
         #FIXME: query profiles from hypervisor args through cobbler api
