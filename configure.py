@@ -284,7 +284,6 @@ def isManagementServiceStable(ssh=None, timeout=300, interval=5):
     logging.info("Waiting for cloud-management service to become stable")
     if ssh is None:
         return False
-    toggle = True
     while timeout != 0:
         cs_status = ''.join(ssh.execute("service cloud-management status"))
         logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
@@ -295,80 +294,21 @@ def isManagementServiceStable(ssh=None, timeout=300, interval=5):
         timeout = timeout - interval
         delay(interval)
 
+def testManagementServer(mgmt_host):
+    """
+    Test that the cloudstack service is up
+    """
+    #TODO: Add user registration step
+    mgmt_ip = macinfo[mgmt_host]["address"]
+    mgmt_pass = macinfo[mgmt_host]["password"]
+    with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        isManagementServiceStable(ssh, timeout=60)
 
-    
-def init(lvl=logging.INFO):
-    initLogging(logFile=None, lvl=lvl)
-        
-if __name__ == '__main__':
-
-    parser = ArgumentParser()
-    parser.add_argument("-l", "--logging", action="store", default="INFO",
-                      dest="loglvl", help="logging level (INFO|DEBUG|)")
-    parser.add_argument("-v", "--hypervisor", action="store", default="xen",
-                      dest="hypervisor", help="hypervisor type")
-    parser.add_argument("-d", "--distro", action="store", default="rhel",
-                      dest="distro", help="management server distro")
-    parser.add_argument("-p", "--profile", action="store", default="xen602",
-                      dest="profile", help="cobbler profile for hypervisor")
-    parser.add_argument("-y","--system", help="system properties file",
-                      dest="system", action="store", default="system.properties")
-    options = parser.parse_args()
-
-    if options.loglvl == "DEBUG":
-        init(logging.DEBUG)
-    elif options.loglvl == "INFO":
-        init(logging.INFO)
-    else:
-        raise Exception("Invalid log level %s"%options.loglvl)
-
-    if options.hypervisor == "xen":
-        auto_config = "xen.cfg"
-    elif options.hypervisor == "kvm":
-        auto_config = "kvm.cfg"
-    else:
-        auto_config = "xen.cfg"
-
-    if options.system is not None:
-        system = ConfigParser()
-        try:
-            with open(options.system, 'r') as cfg:
-                system.readfp(cfg)
-        except IOError, e:
-            logging.error("Specify a valid path for the system properties")
-            raise e
-    else:
-        raise IOError("no system properties given. aborting")
-
-    generate_system_tables(system)
-
-    mgmt_host = "cloudstack-"+options.distro
-    logging.info("configuring %s for hypervisor %s"%(mgmt_host,
-                                                     options.hypervisor))
-
-    cscfg = configGenerator.get_setup_config(auto_config)
-
-    logging.info("Configuring management server %s"%mgmt_host)
-    logging.info("Reimaging hosts with %s profile for the %s \
-                 hypervisor"%(options.profile, options.hypervisor))
-
-    hosts = [configureManagementServer(mgmt_host)]
-    hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
-    seedSecondaryStorage(cscfg, options.hypervisor)
-    cleanPrimaryStorage(cscfg)
-
-    waitForHostReady(hosts)
-    delay(30)
-    # Re-check because ssh connect works soon as post-installation occurs. But 
-    # server is rebooted after post-installation. Assuming the server is up is
-    # wrong in these cases. To avoid this we will check again before continuing
-    # to add the hosts to cloudstack
-    waitForHostReady(hosts)
+def prepareManagementServer(mgmt_host, cscfg):
+    """
+    Prepare the mgmt server for a marvin test run
+    """
     if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
-        # At this point management server is coming up - preparing it's singleton
-        # DAOs and managers. The default values of the global.settings are also
-        # prepared here. So let's wait long enough for that to finish
-        delay(120)
         _openIntegrationPort(cscfg)
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
@@ -381,13 +321,68 @@ if __name__ == '__main__':
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
     if _isPortListening(host=mgmt_host, port=8096, timeout=120) and _isPortListening(host=mgmt_host, port=8080, timeout=120):
-        logging.info("All reqd services are up on the management server")
+        logging.info("All reqd services are up on the management server %s"%mgmt_host)
     else:
-        raise Exception("Reqd services (apiport, systemport) on management server are not up. Aborting")
+        raise Exception("Reqd services (apiport, systemport) on management server %s are not up. Aborting"%mgmt_host)
+    testManagementServer(mgmt_host)
+    
+def init(lvl=logging.INFO):
+    initLogging(logFile=None, lvl=lvl)
+        
+if __name__ == '__main__':
 
-    mgmt_ip = macinfo[mgmt_host]["address"]
-    mgmt_pass = macinfo[mgmt_host]["password"]
-    with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
-        isManagementServiceStable(ssh, timeout=60)
+    parser = ArgumentParser()
+    parser.add_argument("-l", "--logging", action="store", default="INFO",
+                      dest="loglvl", help="logging level (INFO|DEBUG|)")
+    parser.add_argument("-d", "--distro", action="store", default="rhel",
+                      dest="distro", help="management server distro")
+    parser.add_argument("-v", "--hypervisor", action="store", default="xen",
+            dest="hypervisor", help="hypervisor type")
+    parser.add_argument("-p", "--profile", action="store", default="xen602",
+                      dest="profile", help="cobbler profile for hypervisor")
+    parser.add_argument("-e","--environment", help="environment properties file",
+                      dest="system", action="store")
+    options = parser.parse_args()
 
+    if options.loglvl == "DEBUG":
+        init(logging.DEBUG)
+    elif options.loglvl == "INFO":
+        init(logging.INFO)
+    else:
+        raise Exception("Invalid log level %s"%options.loglvl)
+
+    #Management Server configuration - only tests the packaging
+    mgmt_host = "cloudstack-"+options.distro
+    logging.info("Configuring management server %s"%mgmt_host)
+
+    hosts = [configureManagementServer(mgmt_host)]
+
+    #if system.properties is given clean the environment as well
+    if options.system is not None:
+        system = ConfigParser()
+        try:
+            with open(options.system, 'r') as cfg:
+                system.readfp(cfg)
+        except IOError, e:
+            logging.error("Specify a valid path for the system properties")
+            raise e
+        generate_system_tables(system)
+        #FIXME: query profiles from hypervisor args through cobbler api
+        auto_config = options.hypervisor + ".cfg"
+        cscfg = configGenerator.get_setup_config(auto_config)
+        logging.info("Reimaging hosts with %s profile for the %s \
+	                 hypervisor" % (options.profile, options.hypervisor))
+        hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
+        seedSecondaryStorage(cscfg, options.hypervisor)
+        cleanPrimaryStorage(cscfg)
+    else:
+        logging.warning("no system properties given")
+
+    waitForHostReady(hosts)
+    delay(30)
+    # Re-check because ssh connect works soon as post-installation occurs. But 
+    # server is rebooted after post-installation. Assuming the server is up is
+    # wrong in these cases. To avoid this we will check again before continuing
+    # to add the hosts to cloudstack
+    waitForHostReady(hosts)
     logging.info("All systems go!")
