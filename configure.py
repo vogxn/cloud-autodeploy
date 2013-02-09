@@ -330,13 +330,12 @@ def init(lvl=logging.INFO):
     initLogging(logFile=None, lvl=lvl)
         
 if __name__ == '__main__':
-
     parser = ArgumentParser()
     parser.add_argument("-l", "--logging", action="store", default="INFO",
                       dest="loglvl", help="logging level (INFO|DEBUG|)")
     parser.add_argument("-d", "--distro", action="store", default="rhel",
                       dest="distro", help="management server distro")
-    parser.add_argument("-v", "--hypervisor", action="store", default="xen",
+    parser.add_argument("-v", "--hypervisor", action="store",
             dest="hypervisor", help="hypervisor type")
     parser.add_argument("-p", "--profile", action="store", default="xen602",
                       dest="profile", help="cobbler profile for hypervisor")
@@ -349,34 +348,37 @@ if __name__ == '__main__':
     elif options.loglvl == "INFO":
         init(logging.INFO)
     else:
-        raise Exception("Invalid log level %s"%options.loglvl)
+        init(logging.INFO)
+        
+    #if system.properties is given clean the environment as well
+    if options.system is None:
+        logging.error("no environment properties given. exiting")
+        sys.exit(-1)
+
+    system = ConfigParser()
+    try:
+        with open(options.system, 'r') as cfg:
+            system.readfp(cfg)
+    except IOError, e:
+        logging.error("Specify a valid path for the environment properties")
+        raise e
+    generate_system_tables(system)
 
     #Management Server configuration - only tests the packaging
     mgmt_host = "cloudstack-"+options.distro
     logging.info("Configuring management server %s"%mgmt_host)
-
     hosts = [configureManagementServer(mgmt_host)]
+    logging.warning("no system properties given")
 
-    #if system.properties is given clean the environment as well
-    if options.system is not None:
-        system = ConfigParser()
-        try:
-            with open(options.system, 'r') as cfg:
-                system.readfp(cfg)
-        except IOError, e:
-            logging.error("Specify a valid path for the system properties")
-            raise e
-        generate_system_tables(system)
+    if options.hypervisor is not None:
         #FIXME: query profiles from hypervisor args through cobbler api
         auto_config = options.hypervisor + ".cfg"
         cscfg = configGenerator.get_setup_config(auto_config)
         logging.info("Reimaging hosts with %s profile for the %s \
-	                 hypervisor" % (options.profile, options.hypervisor))
+                     hypervisor" % (options.profile, options.hypervisor))
         hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
         seedSecondaryStorage(cscfg, options.hypervisor)
         cleanPrimaryStorage(cscfg)
-    else:
-        logging.warning("no system properties given")
 
     waitForHostReady(hosts)
     delay(30)
