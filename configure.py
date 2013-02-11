@@ -285,12 +285,12 @@ def isManagementServiceStable(ssh=None, timeout=300, interval=5):
     if ssh is None:
         return False
     while timeout != 0:
-        cs_status = ''.join(ssh.execute("service cloud-management status"))
+        cs_status = ''.join(ssh.execute("service cloudstack-management status"))
         logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
         if cs_status.find('running') > 0:
             pass
         else:
-            ssh.execute("service cloud-management restart")
+            ssh.execute("service cloudstack-management restart")
         timeout = timeout - interval
         delay(interval)
 
@@ -316,7 +316,7 @@ def prepareManagementServer(mgmt_host, cscfg):
             # Open up 8096 for Marvin initial signup and register
             ssh.execute("mysql -ucloud -pcloud -Dcloud -e'update configuration\
                         set value=8096 where name like 'integr%'")
-            ssh.execute("service cloud-management restart")
+            ssh.execute("service cloudstack-management restart")
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
@@ -386,4 +386,5 @@ if __name__ == '__main__':
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
+    testManagementServer(mgmt_host)
     logging.info("All systems go!")
