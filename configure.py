@@ -302,8 +302,7 @@ def prepareManagementServer(mgmt_host):
         mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Open up 8096 for Marvin initial signup and register
-            ssh.execute("mysql -ucloud -pcloud -Dcloud -e'update configuration\
-                        set value=8096 where name like 'integr%'")
+            ssh.execute("mysql -ucloud -pcloud -Dcloud -e'update configuration set value=8096 where name like 'integr%'")
             ssh.execute("service cloudstack-management restart")
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
@@ -329,8 +328,6 @@ if __name__ == '__main__':
                       dest="profile", help="cobbler profile for hypervisor")
     parser.add_argument("-e","--environment", help="environment properties file",
                       dest="system", action="store")
-    parser.add_argument("-r","--prepare", help="prepares mgmt server for test run",
-                      dest="prepare", action="store_true")
     options = parser.parse_args()
 
     if options.loglvl == "DEBUG":
@@ -355,15 +352,13 @@ if __name__ == '__main__':
     generate_system_tables(system)
 
     hosts = []
+    prepare_mgmt = False
     if options.distro is not None:
         #Management Server configuration - only tests the packaging
         mgmt_host = "cloudstack-"+options.distro
+        prepare_mgmt = True
         logging.info("Configuring management server %s"%mgmt_host)
         hosts.append(configureManagementServer(mgmt_host))
-        if options.prepare:
-            prepareManagementServer(mgmt_host)
-        else:
-            testManagementServer(mgmt_host)
 
     if options.hypervisor is not None:
         #FIXME: query profiles from hypervisor args through cobbler api
@@ -382,4 +377,8 @@ if __name__ == '__main__':
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
+    if prepare_mgmt:
+        prepareManagementServer(mgmt_host)
+    else:
+        testManagementServer(mgmt_host)
     logging.info("All systems go!")
