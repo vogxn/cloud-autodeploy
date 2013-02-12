@@ -19,6 +19,9 @@ do
     esac
 done
 
-vdi_uuid=$(xe vdi-list name-label=test | grep ^uuid | awk '{print $5}')
-xe vdi-destroy uuid=$vdi_uuid
+for vdi_uuid in $(xe vdi-list name-label=$vmname | grep ^uuid | awk '{print $5}')
+do
+    xe vdi-unlock --force uuid=$vdi_uuid
+    xe vdi-destroy uuid=$vdi_uuid
+done
 xe vm-uninstall force=true vm=$vmname
