@@ -120,17 +120,6 @@ def configureManagementServer(mgmt_host):
     logging.info("started mgmt server with uuid: %s. Waiting for services .."%out[1]);
     return mgmt_host
 
-def _openIntegrationPort(csconfig):
-    dbhost = csconfig.dbSvr.dbSvr
-    dbuser = csconfig.dbSvr.user
-    dbpasswd = csconfig.dbSvr.passwd
-    logging.debug("opening the integration port on %s for %s with passwd %s"%(dbhost, dbuser, dbpasswd))
-    conn = dbConnection.dbConnection(dbhost, 3306, dbuser, dbpasswd, "cloud")
-    uquery = "update configuration set value=%s where name=%s" 
-    conn.execute(uquery, (csconfig.mgtSvr[0].port, 'integration.api.port'))
-    squery = "select name, value from configuration where name=%s"
-    logging.info("integration port open: "%conn.execute(squery, ('integration.api.port',)))
-       
 def mountAndClean(host, path):
     """
     Will mount and clear the files on NFS host in the path given. Obviously the
@@ -304,12 +293,11 @@ def testManagementServer(mgmt_host):
     with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
         isManagementServiceStable(ssh, timeout=60)
 
-def prepareManagementServer(mgmt_host, cscfg):
+def prepareManagementServer(mgmt_host):
     """
     Prepare the mgmt server for a marvin test run
     """
     if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
-        _openIntegrationPort(cscfg)
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
@@ -372,8 +360,8 @@ if __name__ == '__main__':
         mgmt_host = "cloudstack-"+options.distro
         logging.info("Configuring management server %s"%mgmt_host)
         hosts.append(configureManagementServer(mgmt_host))
-        if options.prepare and cscfg is not None:
-            prepareManagementServer(mgmt_host, cscfg)
+        if options.prepare:
+            prepareManagementServer(mgmt_host)
         else:
             testManagementServer(mgmt_host)
 
