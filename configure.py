@@ -372,6 +372,10 @@ if __name__ == '__main__':
         mgmt_host = "cloudstack-"+options.distro
         logging.info("Configuring management server %s"%mgmt_host)
         hosts.append(configureManagementServer(mgmt_host))
+        if options.prepare and cscfg is not None:
+            prepareManagementServer(mgmt_host, cscfg)
+        else:
+            testManagementServer(mgmt_host)
 
     if options.hypervisor is not None:
         #FIXME: query profiles from hypervisor args through cobbler api
@@ -390,9 +394,4 @@ if __name__ == '__main__':
     # wrong in these cases. To avoid this we will check again before continuing
     # to add the hosts to cloudstack
     waitForHostReady(hosts)
-
-    if options.prepare and cscfg is not None:
-        prepareManagementServer(mgmt_host, cscfg)
-    else:
-        testManagementServer(mgmt_host)
     logging.info("All systems go!")
