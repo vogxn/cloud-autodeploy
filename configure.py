@@ -379,6 +379,4 @@ if __name__ == '__main__':
     waitForHostReady(hosts)
     if prepare_mgmt:
         prepareManagementServer(mgmt_host)
-    else:
-        testManagementServer(mgmt_host)
     logging.info("All systems go!")
