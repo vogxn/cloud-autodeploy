@@ -333,7 +333,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("-l", "--logging", action="store", default="INFO",
                       dest="loglvl", help="logging level (INFO|DEBUG|)")
-    parser.add_argument("-d", "--distro", action="store", default="rhel",
+    parser.add_argument("-d", "--distro", action="store",
                       dest="distro", help="management server distro")
     parser.add_argument("-v", "--hypervisor", action="store",
             dest="hypervisor", help="hypervisor type")
