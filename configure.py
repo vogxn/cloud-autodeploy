@@ -297,7 +297,9 @@ def prepareManagementServer(mgmt_host):
     """
     Prepare the mgmt server for a marvin test run
     """
-    if _isPortListening(host=mgmt_host, port=22, timeout=10) and _isPortListening(host=mgmt_host, port=3306, timeout=10):
+    if _isPortListening(host=mgmt_host, port=22, timeout=10) \
+            and _isPortListening(host=mgmt_host, port=3306, timeout=10) \
+            and _isPortListening(host=mgmt_host, port=8080, timeout=120):
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
@@ -307,10 +309,10 @@ def prepareManagementServer(mgmt_host):
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
-    if _isPortListening(host=mgmt_host, port=8096, timeout=120) and _isPortListening(host=mgmt_host, port=8080, timeout=120):
+    if _isPortListening(host=mgmt_host, port=8096, timeout=120):
         logging.info("All reqd services are up on the management server %s"%mgmt_host)
     else:
-        raise Exception("Reqd services (apiport, systemport) on management server %s are not up. Aborting"%mgmt_host)
+        raise Exception("Reqd service for integration port on management server %s is not open. Aborting"%mgmt_host)
     testManagementServer(mgmt_host)
     
 def init(lvl=logging.INFO):
