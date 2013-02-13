@@ -302,7 +302,7 @@ def prepareManagementServer(mgmt_host):
         mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Open up 8096 for Marvin initial signup and register
-            ssh.execute("mysql -ucloud -pcloud -Dcloud -e'update configuration set value=8096 where name like 'integr%'")
+            ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
             ssh.execute("service cloudstack-management restart")
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
