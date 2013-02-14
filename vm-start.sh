@@ -25,7 +25,7 @@ vmuuid=$(xe vm-install template=Other\ install\ media new-name-label=$vmname)
 
 sruuid=$(xe sr-list type=lvm | grep uuid | awk '{print $5}')
 vdiuuid=$(xe vdi-create name-label=$vmname sharable=0 sr-uuid=$sruuid type=user virtual-size=21474836480)
-xe vbd-create bootable=true mode=RW type=DISK device=0 unpluggable=true vdi-uuid=$vdiuuid vm-uuid=$vmuuid
+vbduuid=$(xe vbd-create bootable=true mode=RW type=DISK device=0 unpluggable=true vdi-uuid=$vdiuuid vm-uuid=$vmuuid)
 
 nwuuid=$(xe network-list bridge=xenbr0  | grep uuid | awk '{print $5}')
 xe vif-create mac=$mac network-uuid=$nwuuid device=0 vm-uuid=$vmuuid
