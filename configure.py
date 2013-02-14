@@ -300,6 +300,7 @@ def prepareManagementServer(mgmt_host):
     if _isPortListening(host=mgmt_host, port=22, timeout=10) \
             and _isPortListening(host=mgmt_host, port=3306, timeout=10) \
             and _isPortListening(host=mgmt_host, port=8080, timeout=120):
+        delay(120) #introduce dumb delay
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
         with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
