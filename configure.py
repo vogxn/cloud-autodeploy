@@ -117,7 +117,7 @@ def configureManagementServer(mgmt_host):
     out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
                                                   mgmt_vm["ethernet"]))
 
-    logging.info("started mgmt server with uuid: %s. Waiting for services .."%out[1]);
+    logging.info("started mgmt server with uuid: %s. Waiting for services .."%out);
     return mgmt_host
 
 def mountAndClean(host, path):
