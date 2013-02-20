@@ -46,7 +46,6 @@ def describeResources(config):
     z.internaldns1 = config.get('environment', 'internal_dns1')
     z.internaldns2 = config.get('environment', 'internal_dns2')
     z.name = 'z0'
-    z.vlan = config.get('cloudstack', 'z0.zone.vlan')
     z.networktype = 'Advanced'
     z.guestcidraddress = '10.1.1.0/24'
     
@@ -57,6 +56,7 @@ def describeResources(config):
     pn.name = "z0-pnet"
     pn.traffictypes = [traffictype("Guest"), traffictype("Management"), traffictype("Public")]
     pn.providers.append(vpcprovider)
+    pn.vlan = config.get('cloudstack', 'z0.guest.vlan')
     
     z.physical_networks.append(pn)
 

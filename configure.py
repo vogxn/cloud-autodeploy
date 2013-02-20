@@ -340,7 +340,6 @@ if __name__ == '__main__':
     else:
         init(logging.INFO)
         
-    #if system.properties is given clean the environment as well
     if options.system is None:
         logging.error("no environment properties given. exiting")
         sys.exit(-1)
