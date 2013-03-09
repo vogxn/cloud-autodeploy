@@ -270,7 +270,7 @@ def waitForHostReady(hostlist):
     logging.info("All hosts %s are up"%hostlist)
 
 def isManagementServiceStable(ssh=None, timeout=300, interval=5):
-    logging.info("Waiting for cloud-management service to become stable")
+    logging.info("Waiting for cloudstack-management service to become stable")
     if ssh is None:
         return False
     while timeout != 0:
