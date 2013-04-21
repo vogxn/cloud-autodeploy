@@ -312,9 +312,19 @@ def prepareManagementServer(mgmt_host):
 
     if _isPortListening(host=mgmt_host, port=8096, timeout=120):
         logging.info("All reqd services are up on the management server %s"%mgmt_host)
+        testManagementServer(mgmt_host)
+        return
+    else:
+        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+            # Force kill java process
+            ssh.execute("killall -9 java; service cloudstack-management start")
+
+    if _isPortListening(host=mgmt_host, port=8096, timeout=120):
+        logging.info("All reqd services are up on the management server %s"%mgmt_host)
+        testManagementServer(mgmt_host)
+        return
     else:
         raise Exception("Reqd service for integration port on management server %s is not open. Aborting"%mgmt_host)
-    testManagementServer(mgmt_host)
     
 def init(lvl=logging.INFO):
     initLogging(logFile=None, lvl=lvl)
