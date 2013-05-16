@@ -14,7 +14,7 @@ class BuildGenerator(object):
     3. Fetch latest successful job
     4. Resolve Job to Repo URL/fetch artifact
     """
-    def __init__(self, username=None, passwd=None, url="http://hudson.lab.vmops.com", job='CloudStack-PRIVATE'):
+    def __init__(self, username=None, passwd=None, url="http://jenkins-ccp.citrix.com", job='CloudStack-PRIVATE'):
         #TODO: Change the username to "vogon" for automation
         self.hudsonurl = url
         self.tarball = None
@@ -146,7 +146,7 @@ if __name__ == '__main__':
 #    hudson.readBuildConfiguration('build.cfg')
 #    hudson.build()
 
-     hudson = BuildGenerator("CloudStack-PRIVATE")
+     hudson = BuildGenerator("ASF-build-master-nonoss-rhel63")
      hudson.readBuildConfiguration('build.cfg')
-     hudson.build(wait=60)
-#     hudson.getBuildWithNumber(2586)
+#     hudson.build(wait=60)
+     hudson.getBuildWithNumber(2586)
