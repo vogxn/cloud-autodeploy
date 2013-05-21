@@ -56,6 +56,7 @@ def describeResources(config):
     pn.name = "z0-pnet"
     pn.traffictypes = [traffictype("Guest"), traffictype("Management"), traffictype("Public")]
     pn.providers.append(vpcprovider)
+    pn.isolationmethods = ["VLAN"]
     pn.vlan = config.get('cloudstack', 'z0.guest.vlan')
     
     z.physical_networks.append(pn)
