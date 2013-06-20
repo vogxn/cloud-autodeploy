@@ -48,16 +48,21 @@ def describeResources(config):
     z.name = 'z0'
     z.networktype = 'Advanced'
     z.guestcidraddress = '10.1.1.0/24'
+    z.securitygroupenabled = 'false'
     
     vpcprovider = provider()
     vpcprovider.name = 'VpcVirtualRouter'
+
+    lbprovider = provider()
+    lbprovider.name = 'InternalLbVm'
     
     pn = physical_network()
     pn.name = "z0-pnet"
     pn.traffictypes = [traffictype("Guest"), traffictype("Management"), traffictype("Public")]
-    pn.providers.append(vpcprovider)
     pn.isolationmethods = ["VLAN"]
     pn.vlan = config.get('cloudstack', 'z0.guest.vlan')
+    pn.providers.append(vpcprovider)
+    pn.providers.append(lbprovider)
     
     z.physical_networks.append(pn)
 
