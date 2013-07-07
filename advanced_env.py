@@ -154,16 +154,9 @@ def describeResources(config):
     z.pods.append(p1)
 
     secondary = secondaryStorage()
-    secondary.name = config.get('objectstore', 'name')
-    secondary.provider = 'S3'
-    secondary.details = config._sections['objectstore']
+    secondary.url = config.get('cloudstack', 'z0.secondary.pool')
+    secondary.provider = "NFS"
     z.secondaryStorages.append(secondary)
-
-    cache = cacheStorage()
-    cache.url = config.get('cachestorage', 'url')
-    cache.provider = 'NFS'
-    cache.details = config._sections['cachestorage']
-    z.cacheStorages.append(cache)
 
     '''Add zone'''
     zs.zones.append(z)
