@@ -1,23 +1,36 @@
 from ConfigParser import ConfigParser
 from optparse import OptionParser
 import marvin
+from marvin import configGenerator
 from marvin import remoteSSHClient
 from time import sleep as delay
+import telnetlib
+import socket
 
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
+    parser.add_option("-c", "--config", action="store", default="xen.cfg",
+                      dest="config", help="the path where the server configurations is stored")
     (options, args) = parser.parse_args()
     
-    if options.env_config is None:
-        logging.error("please provide the server configuration file")
+    if options.config is None:
         raise
 
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(options.env_config)
-    environment = dict(cfg.items('environment'))
+    cscfg = configGenerator.get_setup_config(options.config)
+    mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
+    ssh.execute("service cloudstack-management restart")
 
-    mgmt_ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-    mgmt_ssh.execute("service cloud-management restart")
-    delay(120)
+    #Telnet wait until api port is open
+    tn = None
+    timeout = 120
+    while timeout > 0:
+        try:
+            tn = telnetlib.Telnet(mgmt_server, 8096, timeout=120)
+            break
+        except Exception:
+            delay(1)
+            timeout = timeout - 1
+    if tn is None:
+        raise socket.error("Unable to reach API port")
+

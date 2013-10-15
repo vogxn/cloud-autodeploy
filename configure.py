@@ -1,58 +1,68 @@
 from ConfigParser import ConfigParser
 from bashUtils import bash
-from buildGenerator import BuildGenerator
 from marvin import configGenerator
 from marvin import remoteSSHClient
 from marvin import dbConnection
-from optparse import OptionParser
-from ipmi_lookup import ipmitable
+from argparse import ArgumentParser
 from time import sleep as delay
-import bashUtils
-import buildGenerator
+from netaddr import IPNetwork
+from netaddr import IPAddress
+import contextlib
+import telnetlib
 import logging
-import marvin
-import os
+import threading
+import Queue
+import sys
 import random
 import string
 import urllib2
 import urlparse
 import socket
-import select
-import errno
 
-SRC_ARCH_DIR = "/root/cloud/arch"
-DST_ARCH_DIR = "/root/cloud/arch"
-WORKSPACE = "." #Where redeploy.sh is placed. Ideally repo home
+WORKSPACE="."
+IPMI_PASS="calvin"
+DOMAIN = 'fmt.vmops.com'
+
+macinfo = {}
+ipmiinfo = {}
+cobblerinfo = {}
+
+def generate_system_tables(config):
+    dhcp = config.items("dhcp")
+    for entry in dhcp:
+        macinfo[entry[0]] = {}
+        mac, passwd, ip =  entry[1].split(",")
+        macinfo[entry[0]]["ethernet"] = mac
+        macinfo[entry[0]]["password"] = passwd
+        macinfo[entry[0]]["address"] = ip
+
+    ipmi = config.items("ipmi")
+    for entry in ipmi:
+        ipmiinfo[entry[0]] = entry[1]
+
+    cobbler = config.items("cobbler")
+    for entry in cobbler:
+        cobblerinfo[entry[0]] = {}
+        net, gw, cblrgw = entry[1].split(",")
+        cobblerinfo[entry[0]]["network"] = net
+        cobblerinfo[entry[0]]["gateway"] = gw
+        cobblerinfo[entry[0]]["cblrgw"] = cblrgw
 
 def initLogging(logFile=None, lvl=logging.INFO):
     try:
         if logFile is None:
             logging.basicConfig(level=lvl, \
-                                format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
+                                format="'%(asctime)-6s: %(name)s \
+                                (%(threadName)s) - %(levelname)s - %(message)s'") 
         else: 
             logging.basicConfig(filename=logFile, level=lvl, \
-                                format="'%(asctime)-6s: %(name)s - %(levelname)s - %(message)s'") 
+                                format="'%(asctime)-6s: %(name)s \
+                                (%(threadName)s) - %(levelname)s - %(message)s'") 
     except:
         logging.basicConfig(level=lvl) 
 
 def mkdirs(path):
     dir = bash("mkdir -p %s" % path)
-
-def build(build_config, build_number, job):   
-    hudson = BuildGenerator(job=job)
-    if build_config is not None:
-        hudson.readBuildConfiguration(build_config)
-        if hudson.build():
-         return hudson
-        else:
-         raise EnvironmentError("hudson build failed")
-    elif build_number is not None and build_number > 0:
-        bld = hudson.getBuildWithNumber(int(build_number))
-        if bld is not None:
-            return hudson
-        else: 
-            raise EnvironmentError("Could not find build with number %s"%build_number)
-
 
 def fetch(filename, url, path):
     try:
@@ -66,60 +76,55 @@ def fetch(filename, url, path):
         raise
     bash("mv /tmp/%s %s" % (filename, path))
 
-def copyBuildToMshost(hudson, env_config):
-   cfg = ConfigParser()
-   cfg.optionxform = str
-   cfg.read(env_config)
-   
-   environment = dict(cfg.items('environment'))
-   ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-   ssh.execute("mkdir -p %s" % DST_ARCH_DIR)
-   
-   src_path = os.path.join(SRC_ARCH_DIR, hudson.getTarballName())
-   dst_path = os.path.join(DST_ARCH_DIR, hudson.getTarballName())
-   logging.debug("copying CS tarball from %s to %s"%(src_path, dst_path))
-   ssh.scp("%s" % src_path, "%s" % dst_path)
-   logging.info("%s has been copied to the automation instance %s under %s" % (hudson.getTarballName(), environment['mshost.ip'], DST_ARCH_DIR))
-   
-   return dst_path
-   
-def configureManagementServer(bld, env_config, auto_config):
-    tarball_path = copyBuildToMshost(bld, options.env_config)
-    cfg = ConfigParser()
-    cfg.optionxform = str
-    cfg.read(env_config)
-    environment = dict(cfg.items('environment'))
-    cscfg = configGenerator.get_setup_config(auto_config)
-    
-#    1. erase secondary store
-#    2. seed system VM template
-#    3. setup-databases and setup-management
-    ssh = remoteSSHClient.remoteSSHClient(environment['mshost.ip'], 22, environment['mshost.username'], environment['mshost.password'])
-    ssh.scp("%s/redeploy.sh" % WORKSPACE, "/root/redeploy.sh")
-    ssh.execute("chmod +x /root/redeploy.sh")
-    for zone in cscfg.zones:
-        for sstor in zone.secondaryStorages:
-            shost = urlparse.urlsplit(sstor.url).hostname
-            spath = urlparse.urlsplit(sstor.url).path
-#            ssh.execute_buffered("bash redeploy.sh -s %s -a %s -d %s"%(spath, tarball_path, cscfg.dbSvr.dbSvr))
-            bash("ssh -ostricthostkeychecking=no -oUserKnownHostsFile=/dev/null %s@%s bash redeploy.sh -s %s -a %s -d %s"%(environment['mshost.username'], environment['mshost.ip'], spath, tarball_path, cscfg.dbSvr.dbSvr))
-            
-    delay(120)
-    _openIntegrationPort(cscfg, env_config)
-    cleanPrimaryStorage(cscfg)
+def cobblerHomeResolve(ip_address, param="gateway"):
+    ipAddr = IPAddress(ip_address)
+    for nic, network in cobblerinfo.items():
+        subnet = IPNetwork(cobblerinfo[nic]["network"])
+        if ipAddr in subnet:
+            return cobblerinfo[nic][param]
 
-def _openIntegrationPort(csconfig, env_config):
-    dbhost = csconfig.dbSvr.dbSvr
-    dbuser = csconfig.dbSvr.user
-    dbpasswd = csconfig.dbSvr.passwd
-    logging.debug("opening the integration port on %s for %s with passwd %s"%(dbhost, dbuser, dbpasswd))
-    conn = dbConnection.dbConnection(dbhost, 3306, dbuser, dbpasswd, "cloud")
-    uquery = "update configuration set value=%s where name='integration.api.port'"%csconfig.mgtSvr[0].port
-    conn.execute(uquery)
-    squery = "select name,value from configuration where name='integration.api.port'"
-    logging.debug("integration port open: "%conn.execute(squery))
-       
+def configureManagementServer(mgmt_host):
+    """
+    We currently configure all mgmt servers on a single xen HV. In the future
+    replace this by launching instances via the API on a IaaS cloud using
+    desired template
+    """
+    mgmt_vm = macinfo[mgmt_host]
+    mgmt_ip = macinfo[mgmt_host]["address"]
+
+    #Remove and re-add cobbler system
+    bash("cobbler system remove --name=%s"%mgmt_host)
+    bash("cobbler system add --name=%s --hostname=%s --mac-address=%s \
+         --netboot-enabled=yes --enable-gpxe=no \
+         --profile=%s --server=%s --gateway=%s"%(mgmt_host, mgmt_host,
+                                                 mgmt_vm["ethernet"], mgmt_host,
+                                                 cobblerHomeResolve(mgmt_ip, param='cblrgw'),
+                                                 cobblerHomeResolve(mgmt_ip)));
+    bash("cobbler sync")
+
+    #Revoke all certs from puppetmaster
+    bash("puppet cert clean %s.%s"%(mgmt_host, DOMAIN))
+
+    #Start VM on xenserver
+    xenssh = \
+    remoteSSHClient.remoteSSHClient(macinfo["infraxen"]["address"],
+                                    22, "root",
+                                    macinfo["infraxen"]["password"])
+
+    logging.debug("bash vm-uninstall.sh -n %s"%(mgmt_host))
+    xenssh.execute("xe vm-uninstall force=true vm=%s"%mgmt_host)
+    logging.debug("bash vm-start.sh -n %s -m %s"%(mgmt_host, mgmt_vm["ethernet"]))
+    out = xenssh.execute("bash vm-start.sh -n %s -m %s"%(mgmt_host,
+                                                  mgmt_vm["ethernet"]))
+
+    logging.info("started mgmt server with uuid: %s. Waiting for services .."%out);
+    return mgmt_host
+
 def mountAndClean(host, path):
+    """
+    Will mount and clear the files on NFS host in the path given. Obviously the
+    NFS server should be mountable where this script runs
+    """
     mnt_path = "/tmp/" + ''.join([random.choice(string.ascii_uppercase) for x in xrange(0, 10)])
     mkdirs(mnt_path)
     logging.info("cleaning up %s:%s" % (host, path))
@@ -128,107 +133,262 @@ def mountAndClean(host, path):
     umnt = bash("umount %s" % mnt_path)
    
 def cleanPrimaryStorage(cscfg):
+    """
+    Clean all the NFS primary stores and prepare them for the next run
+    """
     for zone in cscfg.zones:
         for pod in zone.pods:
             for cluster in pod.clusters:
                 for primaryStorage in cluster.primaryStorages:
                     if urlparse.urlsplit(primaryStorage.url).scheme == "nfs":
                         mountAndClean(urlparse.urlsplit(primaryStorage.url).hostname, urlparse.urlsplit(primaryStorage.url).path)
+    logging.info("Cleaned up primary stores")
 
-def savebuild(hudson):  
-    tarball_url = "http://%s" % hudson.resolveRepoPath()
-    fetch(hudson.getTarballName(), tarball_url, SRC_ARCH_DIR)
-    logging.info("build %s saved under %s" % (hudson.getTarballName(), SRC_ARCH_DIR))
-    
-def refreshHosts(auto_config):
-    hostlist = []
-    cscfg = configGenerator.get_setup_config(auto_config)
+def seedSecondaryStorage(cscfg, hypervisor):
+    """
+    erase secondary store and seed system VM template via puppet. The
+    secseeder.sh script is executed on mgmt server bootup which will mount and
+    place the system VM templates on the NFS
+    """
+    mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
+    logging.info("Secondary storage seeded via puppet with systemvm templates")
+    bash("rm -f /etc/puppet/modules/cloudstack/files/secseeder.sh")
+    for zone in cscfg.zones:
+        for sstor in zone.secondaryStorages:
+            shost = urlparse.urlsplit(sstor.url).hostname
+            spath = urlparse.urlsplit(sstor.url).path
+            spath = ''.join([shost, ':', spath])
+            logging.info("seeding %s systemvm template on %s"%(hypervisor, spath))
+            bash("echo '/bin/bash /root/redeploy.sh -s %s -h %s' >> /etc/puppet/modules/cloudstack/files/secseeder.sh"%(spath, hypervisor))
+    bash("chmod +x /etc/puppet/modules/cloudstack/files/secseeder.sh")
+
+def refreshHosts(cscfg, hypervisor="xen", profile="xen602"):
+    """
+    Removes cobbler system from previous run. 
+    Creates a new system for current run.
+    Ipmi boots from PXE - default to Xenserver profile
+    """
     for zone in cscfg.zones:
         for pod in zone.pods:
             for cluster in pod.clusters:
                 for host in cluster.hosts:
                     hostname = urlparse.urlsplit(host.url).hostname
-                    hostlist.append(hostname)
                     logging.debug("attempting to refresh host %s"%hostname)
-                    ipmi_hostname = ipmitable[hostname]
+                    #revoke certs
+                    bash("puppet cert clean %s.%s"%(hostname, DOMAIN))
+                    #setup cobbler profiles and systems
+                    try:
+                        hostmac = macinfo[hostname]['ethernet']
+                        hostip = macinfo[hostname]['address']
+                        bash("cobbler system remove \
+                             --name=%s"%(hostname))
+                        bash("cobbler system add --name=%s --hostname=%s \
+                             --mac-address=%s --netboot-enabled=yes \
+                             --enable-gpxe=no --profile=%s --server=%s \
+                             --gateway=%s"%(hostname, hostname, hostmac,
+                                            profile, cobblerHomeResolve(hostip, param='cblrgw'),
+                                            cobblerHomeResolve(hostip)))
+
+                        bash("cobbler sync")
+                    except KeyError:
+                        logging.error("No mac found against host %s. Exiting"%hostname)
+                        sys.exit(2)
                     #set ipmi to boot from PXE
-                    if ipmi_hostname is not None:
+                    try:
+                        ipmi_hostname = ipmiinfo[hostname]
                         logging.debug("found IPMI nic on %s for host %s"%(ipmi_hostname, hostname))
-                        bash("ipmitool -Uroot -Pcalvin -H%s chassis bootdev pxe"%ipmi_hostname)
-                        bash("ipmitool -Uroot -Pcalvin -H%s chassis power cycle"%ipmi_hostname)           
+                        bash("ipmitool -Uroot -P%s -H%s chassis bootdev \
+                             pxe"%(IPMI_PASS, ipmi_hostname))
+                        bash("ipmitool -Uroot -P%s -H%s chassis power cycle"
+                             %(IPMI_PASS, ipmi_hostname))
                         logging.debug("Sent PXE boot for %s"%ipmi_hostname)
-                        delay(30)
-                    else:
-                        logging.warn("No ipmi host found against %s"%hostname)
-    logging.info("Waiting for hosts to refresh")
-    _waitForHostReady(hostlist)
+                    except KeyError:
+                        logging.error("No ipmi host found against %s. Exiting"%hostname)
+                        sys.exit(2)
+                    yield hostname
+    delay(5) #to begin pxe boot process or wait returns immediately
 
-def _waitForHostReady(hostlist):
-    #TODO:select on ssh channel for all hosts
+def _isPortListening(host, port, timeout=120):
+    """
+    Scans 'host' for a listening service on 'port'
+    """
+    tn = None
+    while timeout != 0:
+        try:
+            tn = telnetlib.Telnet(host, port, timeout=timeout)
+            timeout = 0
+        except Exception, e:
+            logging.debug("Failed to telnet connect to %s:%s with %s"%(host, port, e))
+            delay(5)
+            timeout = timeout - 5
+    if tn is None:
+        logging.error("No service listening on port %s:%d"%(host, port))
+        return False 
+    else:
+        logging.info("Unrecognizable service up on %s:%d"%(host, port))
+        return True
+
+def _isPortOpen(hostQueue, port=22):
+    """
+    Checks if there is an open socket on specified port. Default is SSH
+    """
     ready = []
-    
-    for host in hostlist:
-        remain = list(set(hostlist) - set(ready))
-        while len(remain) != 0:
-            channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            channel.settimeout(20)
-            #double try older pythons
-            try:
-                try:
-                    err = channel.connect_ex((host, 22))
-                except socket.error, e:
-                        logging.debug("encountered %s retrying in 20s"%e)
-                        delay(20)
-            finally:
-                if err == 0:
-                    ready.append(host)
-                    logging.debug("host: %s is ready"%host)
-                    break #socket in to next host
-                else:
-                    logging.debug("[%s] host %s is not ready"%(err, host))
-                    delay(20)
+    host = hostQueue.get()
+    while True:
+        channel = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        channel.settimeout(20)
+        try:
+            logging.debug("Attempting port=%s connect to host %s"%(port, host))
+            err = channel.connect_ex((host, port))
+        except socket.error, e:
+            logging.debug("encountered %s retrying in 5s"%e)
+            err = e.errno
+            delay(5)
+        finally:
+            if err == 0:
+                ready.append(host)
+                logging.info("host: %s is ready"%host)
+                break
+            else:
+                logging.debug("[%s] host %s is not ready. Retrying"%(err, host))
+                delay(5)
                 channel.close()
-        logging.debug("hosts still remaining: %s"%remain) 
-    
+    hostQueue.task_done()
 
-def init():
-    initLogging()
-    mkdirs(SRC_ARCH_DIR)
-    mkdirs(WORKSPACE)
+def waitForHostReady(hostlist):
+    logging.info("Waiting for hosts %s to refresh"%hostlist)
+    hostQueue = Queue.Queue()
+
+    for host in hostlist:
+        t = threading.Thread(name='HostWait-%s'%hostlist.index(host), target=_isPortOpen,
+                             args=(hostQueue, ))
+        t.setDaemon(True)
+        t.start()
+
+    [hostQueue.put(host) for host in hostlist]
+    hostQueue.join()
+    logging.info("All hosts %s are up"%hostlist)
+
+def isManagementServiceStable(ssh=None, timeout=300, interval=5):
+    logging.info("Waiting for cloudstack-management service to become stable")
+    if ssh is None:
+        return False
+    while timeout != 0:
+        cs_status = ''.join(ssh.execute("service cloudstack-management status"))
+        logging.debug("[-%ds] Cloud Management status: %s"%(timeout, cs_status))
+        if cs_status.find('running') > 0:
+            pass
+        else:
+            ssh.execute("service cloudstack-management restart")
+        timeout = timeout - interval
+        delay(interval)
+
+def testManagementServer(mgmt_host):
+    """
+    Test that the cloudstack service is up
+    """
+    #TODO: Add user registration step
+    mgmt_ip = macinfo[mgmt_host]["address"]
+    mgmt_pass = macinfo[mgmt_host]["password"]
+    with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        isManagementServiceStable(ssh, timeout=60)
+
+def prepareManagementServer(mgmt_host):
+    """
+    Prepare the mgmt server for a marvin test run
+    """
+    if _isPortListening(host=mgmt_host, port=22, timeout=10) \
+            and _isPortListening(host=mgmt_host, port=3306, timeout=10) \
+            and _isPortListening(host=mgmt_host, port=8080, timeout=300):
+        delay(120) #introduce dumb delay
+        mgmt_ip = macinfo[mgmt_host]["address"]
+        mgmt_pass = macinfo[mgmt_host]["password"]
+        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+            # Open up 8096 for Marvin initial signup and register
+            ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
+            ssh.execute("service cloudstack-management restart")
+    else:
+        raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
+
+    if _isPortListening(host=mgmt_host, port=8096, timeout=300):
+        logging.info("All reqd services are up on the management server %s"%mgmt_host)
+        testManagementServer(mgmt_host)
+        return
+    else:
+        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+            # Force kill java process
+            ssh.execute("killall -9 java; service cloudstack-management start")
+
+    if _isPortListening(host=mgmt_host, port=8096, timeout=300):
+        logging.info("All reqd services are up on the management server %s"%mgmt_host)
+        testManagementServer(mgmt_host)
+        return
+    else:
+        raise Exception("Reqd service for integration port on management server %s is not open. Aborting"%mgmt_host)
+    
+def init(lvl=logging.INFO):
+    initLogging(logFile=None, lvl=lvl)
         
 if __name__ == '__main__':
-    parser = OptionParser()
-    parser.add_option("-b", "--build-config", action="store", default=None, dest="build_config", help="the path where the configuration of the build is stored")
-    parser.add_option("-e", "--env-config", action="store", default="environment.cfg", dest="env_config", help="the path where the server configurations is stored")
-    parser.add_option("-d", "--deployment-config", action="store", default="automation.cfg", dest="auto_config", help="json spec of deployment")
-    parser.add_option("-n", "--build-number", action="store", default=None, dest="build_number", help="CloudStack build number")
-    parser.add_option("-s", "--skip-host", action="store_true", default=False, dest="skip_host", help="Skip Host Refresh")
-    parser.add_option("-m", "--install-marvin", action="store_true", default=True, dest="install_marvin", help="Install Marvin")
-    (options, args) = parser.parse_args()
+    parser = ArgumentParser()
+    parser.add_argument("-l", "--logging", action="store", default="INFO",
+                      dest="loglvl", help="logging level (INFO|DEBUG|)")
+    parser.add_argument("-d", "--distro", action="store",
+                      dest="distro", help="management server distro")
+    parser.add_argument("-v", "--hypervisor", action="store",
+            dest="hypervisor", help="hypervisor type")
+    parser.add_argument("-p", "--profile", action="store", default="xen602",
+                      dest="profile", help="cobbler profile for hypervisor")
+    parser.add_argument("-e","--environment", help="environment properties file",
+                      dest="system", action="store")
+    options = parser.parse_args()
 
-    if options.build_number is None and options.build_config is None:
-        raise AttributeError("must provide a configuration file for the build or a build number")
-    if options.build_config is not None and options.build_number is not None:
-        raise AttributeError("either build.cfg is provided or the build number - not both")
+    if options.loglvl == "DEBUG":
+        init(logging.DEBUG)
+    elif options.loglvl == "INFO":
+        init(logging.INFO)
+    else:
+        init(logging.INFO)
         
-    if options.env_config is None:
-        raise AttributeError("please provide the server configuration file")
-    
-    if options.auto_config is None:
-        raise AttributeError("please provide the spec file for your deployment")
+    if options.system is None:
+        logging.error("no environment properties given. exiting")
+        sys.exit(-1)
 
-    init()
-    
-    bld = build(options.build_config, options.build_number, "CloudStack-PRIVATE")
-    savebuild(bld)
-    configureManagementServer(bld, options.env_config, options.auto_config)
-    if not options.skip_host:
-        refreshHosts(options.auto_config)
+    system = ConfigParser()
+    try:
+        with open(options.system, 'r') as cfg:
+            system.readfp(cfg)
+    except IOError, e:
+        logging.error("Specify a valid path for the environment properties")
+        raise e
+    generate_system_tables(system)
 
-    if not options.install_marvin:
-        if options.build_config:
-            bld = build(options.build_config, 0, "marvin-testclient")
-            for k, v in bld.getArtifacts().iteritems(): 
-                fetch(k, v.url, SRC_ARCH_DIR)
-                bash("pip uninstall -y marvin")
-                bash("pip install %s/%s"%(SRC_ARCH_DIR, k))
+    hosts = []
+    prepare_mgmt = False
+    if options.distro is not None:
+        #Management Server configuration - only tests the packaging
+        mgmt_host = "cloudstack-"+options.distro
+        prepare_mgmt = True
+        logging.info("Configuring management server %s"%mgmt_host)
+        hosts.append(configureManagementServer(mgmt_host))
+
+    if options.hypervisor is not None:
+        #FIXME: query profiles from hypervisor args through cobbler api
+        auto_config = options.hypervisor + ".cfg"
+        cscfg = configGenerator.get_setup_config(auto_config)
+        logging.info("Reimaging hosts with %s profile for the %s \
+                     hypervisor" % (options.profile, options.hypervisor))
+        hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
+        seedSecondaryStorage(cscfg, options.hypervisor)
+        cleanPrimaryStorage(cscfg)
+
+    waitForHostReady(hosts)
+    delay(30)
+    # Re-check because ssh connect works soon as post-installation occurs. But 
+    # server is rebooted after post-installation. Assuming the server is up is
+    # wrong in these cases. To avoid this we will check again before continuing
+    # to add the hosts to cloudstack
+    waitForHostReady(hosts)
+    if prepare_mgmt:
+        prepareManagementServer(mgmt_host)
+    logging.info("All systems go!")

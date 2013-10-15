@@ -105,13 +105,19 @@ class bash:
         return self.success
     
     def getStdout(self):
-        return self.stdout.strip("\n")
+        try:
+            return self.stdout.strip("\n")
+        except AttributeError:
+            return ""
     
     def getLines(self):
         return self.stdout.split("\n")
 
     def getStderr(self):
-        return self.stderr.strip("\n")
+        try:
+            return self.stderr.strip("\n")
+        except AttributeError:
+            return ""
     
     def getErrMsg(self):
         if self.isSuccess():

@@ -1,14 +1,11 @@
 #!/bin/bash
+#set -x
 usage() {
   printf "Usage: %s:\n
-	[-s path to secondary ]  \n
-	[-h hypervisor type (kvm|xenserver|vmware) ]  \n
-	[-t session-timeout ] \n
-	[-a tarball path ] \n
-	[-d db node url ]\n" $(basename $0) >&2
+	[-s nfs path to secondary storage <nfs-server:/export/path> ] [-u url to system template] [-h hypervisor type (kvm|xenserver|vmware) ]\n" $(basename $0) >&2
 
   printf "\nThe -s flag will clean the secondary path and install the specified
-hypervisor routing template as per -h, if -h is not given then xenserver is
+hypervisor's system template as per -h, if -h is not given then xenserver is
 assumed\n"	
 
 }
@@ -18,41 +15,30 @@ failed() {
 }
 
 #flags
-dflag=
 sflag=
-tflag=
 hflag=
-aflag=
+uflag=
 
 VERSION="1.0.1"
 echo "Redeploy Version: $VERSION"
 
-
 #some defaults
-spath='/export/home/bvt/secondary'
-apath='.'
+spath='nfs2.lab.vmops.com:/export/home/bvt/secondary'
 hypervisor='xenserver'
-timeout=300
-sstor='nfs2.lab.vmops.com'
-tmpltstor='nfs1.lab.vmops.com'
+sysvmurl='http://download.cloud.com/templates/acton/acton-systemvm-02062012.vhd.bz2'
+systemvm_seeder='/usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tmplt'
 
-while getopts 'a:t:d:s:h:' OPTION
+while getopts 'u:s:h:' OPTION
 do
   case $OPTION in
-  a)    aflag=1
-		apath="$OPTARG"
-  		;;
   s)    sflag=1
 		spath="$OPTARG"
   		;;
-  d)    dflag=1
-		dbase="$OPTARG"
-		;;
   h)    hflag=1
 		hypervisor="$OPTARG"
 		;;
-  t)    tflag=1
-		timeout="$OPTARG"
+  u)    uflag=1
+		sysvmurl="$OPTARG"
 		;;
   ?)	usage
 		failed 2
@@ -82,86 +68,41 @@ else
         service cloud-management stop
 fi
 
-#set selinux to permissive
-if [[ $(getenforce)=="Enforcing" ]]
-then
-    echo "Disabling SELinux"
-    $(setenforce permissive)
-fi
-
-if [[ "$aflag" == "1" ]]
-then
-	#clear up yum cache
-	rm -rf /var/cache/yum/* /var/cache/cloud
-	#erase old archives
-	if [[ "$(rpm -qa | grep cloud | wc -l)" -gt 0 ]]
-	then
-		packages=$(rpm -qa | grep cloud | tr "\n" " ")
-		yum -y erase $packages
-	fi
-	#install with new archive
-	if [[ -f $apath ]]
-	then
-		dir=$RANDOM
-		mkdir -p /tmp/$dir
-		tar -xvzf $apath -C /tmp/$dir
-		installer_script=$(find /tmp/$dir -name install.sh)
-		bash $installer_script -m #TODO: Pradeep's installer with options
-                bash rm -rf /tmp/$dir
-	else
-		echo "Cannot find cloudstack in $apath"
-		exit 5
-	fi
-fi
-
-sed -iv 's/download.cloud.com/nfs1.lab.vmops.com/g' /usr/share/cloud/setup/templates.sql
-
-#reset session-timeout
-sed -i "s/<session-timeout>30</<session-timeout>$timeout</g" /etc/cloud/management/web.xml
-
 #TODO: archive old logs
 #refresh log state 
 cat /dev/null > /var/log/cloud/management/management-server.log
 cat /dev/null > /var/log/cloud/management/api-server.log
 cat /dev/null > /var/log/cloud/management/catalina.out
 
-if [ "$dflag" == "1" ]
-then
-	if [ "$dbase" != "" ]
-	then
-		#drop databases
-		mysql -uroot -Dcloud -h$dbase -e"drop database cloud; drop database cloud_usage;"
-
-		#redeploy databases
-		cloud-setup-databases cloud:cloud@$dbase --deploy-as=root 
-	fi
-else
-	cloud-setup-databases cloud:cloud@localhost --deploy-as=root
-fi
-
 #replace disk size reqd to 1GB max
-sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt
+sed -i 's/DISKSPACE=5120000/DISKSPACE=20000/g' $systemvm_seeder
+
+if [[ "$uflag" != "1" && "$hypervisor" != "xenserver" ]]
+then
+    echo "URL of systemvm template is reqd."
+    usage
+fi
 
 if [[ "$sflag" == "1" ]]
 then
 	mkdir -p /tmp/secondary
-	mount -t nfs $sstor:$spath /tmp/secondary
+	mount -t nfs $spath /tmp/secondary
 	rm -rf /tmp/secondary/*
 
 	if [[ "$hflag" == "1" && "$hypervisor" == "xenserver" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h xenserver
 	elif [[ "$hflag" == "1" && "$hypervisor" == "kvm" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.qcow2.bz2 -h kvm
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h kvm
 	elif [[ "$hflag" == "1" && "$hypervisor" == "vmware" ]]
 	then
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.ova -h vmware
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h vmware
 	else
-		bash -x /usr/lib64/cloud/agent/scripts/storage/secondary/cloud-install-sys-tmplt -m /tmp/secondary/ -u http://$tmpltstor/templates/routing/debian/Jan06_2012/systemvm.vhd.bz2 -h xenserver
+		bash -x $systemvm_seeder -m /tmp/secondary/ -u $sysvmurl -h xenserver
 	fi
 	umount /tmp/secondary
+else
+    echo "please provide the nfs secondary storage path where templates are stored"
+    usage
 fi
-
-#setup management
-cloud-setup-management 
