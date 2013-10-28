@@ -16,7 +16,7 @@ if __name__ == '__main__':
     if options.config is None:
         raise
 
-    cscfg = configGenerator.get_setup_config(options.config)
+    cscfg = configGenerator.getSetupConfig(options.config)
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
     ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
     ssh.execute("service cloudstack-management restart")
