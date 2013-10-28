@@ -375,7 +375,7 @@ if __name__ == '__main__':
     if options.hypervisor is not None:
         #FIXME: query profiles from hypervisor args through cobbler api
         auto_config = options.hypervisor + ".cfg"
-        cscfg = configGenerator.get_setup_config(auto_config)
+        cscfg = configGenerator.getSetupConfig(auto_config)
         logging.info("Reimaging hosts with %s profile for the %s \
                      hypervisor" % (options.profile, options.hypervisor))
         hosts.extend(refreshHosts(cscfg, options.hypervisor, options.profile))
