@@ -2,7 +2,7 @@ from ConfigParser import ConfigParser
 from optparse import OptionParser
 import marvin
 from marvin import configGenerator
-from marvin import remoteSSHClient
+from marvin import sshClient
 from time import sleep as delay
 import telnetlib
 import socket
@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     cscfg = configGenerator.getSetupConfig(options.config)
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
-    ssh = remoteSSHClient.remoteSSHClient(mgmt_server, 22, "root", "password")
+    ssh = sshClient.SshClient(mgmt_server, 22, "root", "password")
     ssh.execute("service cloudstack-management restart")
 
     #Telnet wait until api port is open

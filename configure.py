@@ -1,7 +1,7 @@
 from ConfigParser import ConfigParser
 from bashUtils import bash
 from marvin import configGenerator
-from marvin import remoteSSHClient
+from marvin import sshClient
 from marvin import dbConnection
 from argparse import ArgumentParser
 from time import sleep as delay
@@ -107,7 +107,7 @@ def configureManagementServer(mgmt_host):
 
     #Start VM on xenserver
     xenssh = \
-    remoteSSHClient.remoteSSHClient(macinfo["infraxen"]["address"],
+    sshClient.SshClient(macinfo["infraxen"]["address"],
                                     22, "root",
                                     macinfo["infraxen"]["password"])
 
@@ -290,7 +290,7 @@ def testManagementServer(mgmt_host):
     #TODO: Add user registration step
     mgmt_ip = macinfo[mgmt_host]["address"]
     mgmt_pass = macinfo[mgmt_host]["password"]
-    with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+    with contextlib.closing(sshClient.SshClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
         isManagementServiceStable(ssh, timeout=60)
 
 def prepareManagementServer(mgmt_host):
@@ -303,7 +303,7 @@ def prepareManagementServer(mgmt_host):
         delay(120) #introduce dumb delay
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
-        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        with contextlib.closing(sshClient.SshClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Open up 8096 for Marvin initial signup and register
             ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
             ssh.execute("service cloudstack-management restart")
@@ -315,7 +315,7 @@ def prepareManagementServer(mgmt_host):
         testManagementServer(mgmt_host)
         return
     else:
-        with contextlib.closing(remoteSSHClient.remoteSSHClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        with contextlib.closing(sshClient.SshClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Force kill java process
             ssh.execute("killall -9 java; service cloudstack-management start")
 
