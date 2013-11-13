@@ -303,7 +303,7 @@ def prepareManagementServer(mgmt_host):
         delay(120) #introduce dumb delay
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
-        with contextlib.closing(SshCient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
+        with contextlib.closing(SshClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
             # Open up 8096 for Marvin initial signup and register
             ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
             ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value='cloudstack-centos63' where name='host'\"")
