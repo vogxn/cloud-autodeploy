@@ -300,14 +300,21 @@ def prepareManagementServer(mgmt_host):
     if _isPortListening(host=mgmt_host, port=22, timeout=10) \
             and _isPortListening(host=mgmt_host, port=3306, timeout=10) \
             and _isPortListening(host=mgmt_host, port=8080, timeout=300):
-        delay(120) #introduce dumb delay
         mgmt_ip = macinfo[mgmt_host]["address"]
         mgmt_pass = macinfo[mgmt_host]["password"]
+        timeout=25
         with contextlib.closing(SshClient(mgmt_ip, 22, "root", mgmt_pass)) as ssh:
-            # Open up 8096 for Marvin initial signup and register
-            ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
-            ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value='cloudstack-centos63' where name='host'\"")
-            ssh.execute("service cloudstack-management restart")
+            while timeout != 0:
+                result = ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"select * from configuration where name like 'integr%'\"")
+                if len(result) !=  0:
+                    # Open up 8096 for Marvin initial signup and register
+                    ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value=8096 where name like 'integr%'\"")
+                    ssh.execute("mysql -ucloud -pcloud -Dcloud -e\"update configuration set value='cloudstack-centos63' where name='host'\"")
+                    ssh.execute("service cloudstack-management restart")
+                    break
+                else:
+                    delay(30)
+                    timeout = timeout - 1
     else:
         raise Exception("Reqd services (ssh, mysql) on management server are not up. Aborting")
 
