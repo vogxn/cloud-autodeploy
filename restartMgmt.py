@@ -19,7 +19,7 @@ if __name__ == '__main__':
     cscfg = configGenerator.getSetupConfig(options.config)
     mgmt_server = cscfg.mgtSvr[0].mgtSvrIp
     ssh = sshClient.SshClient(mgmt_server, 22, "root", "password")
-    ssh.execute("service cloudstack-management restart")
+    ssh.execute("service cloudstack-management stop;service cloudstack-management start")
 
     #Telnet wait until api port is open
     tn = None
